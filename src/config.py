@@ -12,7 +12,7 @@ IS_KAGGLE = ENV == "kaggle" or os.path.exists("/kaggle/working")
 
 # ── Paths ────────────────────────────────────────────────────
 if IS_KAGGLE:
-    ROOT = Path("/kaggle/working/medGemma")
+    ROOT = Path("/kaggle/input/chw-copilot")
 else:
     ROOT = Path(__file__).parent.parent
 
@@ -22,11 +22,7 @@ DATA_DIR = ROOT / "data_synth"
 OUT_DIR = ROOT / "data_synth"
 
 # ── Model configuration ─────────────────────────────────────
-# NuExtract for structured extraction
-NUEXTRACT_MODEL = os.getenv("NUEXTRACT_MODEL", "numind/NuExtract-1.5")
-NUEXTRACT_DEVICE = "auto"  # auto selects GPU if available
-
-# MedGemma for medical reasoning (syndrome tagging, checklist, SITREP)
+# MedGemma for all tasks: extraction, syndrome tagging, checklist, SITREP
 MEDGEMMA_MODEL = os.getenv("MEDGEMMA_MODEL", "google/medgemma-4b-it")
 MEDGEMMA_DEVICE = "auto"
 

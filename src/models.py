@@ -1,7 +1,7 @@
 """Model loading and management.
 
-Lazy-loads NuExtract and MedGemma models. Caches them so they are only
-loaded once per session regardless of how many calls are made.
+Lazy-loads MedGemma model. Caches it so it is only loaded once per session
+regardless of how many calls are made.
 """
 import json
 import re
@@ -10,36 +10,9 @@ from typing import Dict, Any, Optional
 
 from . import config
 
-# ── Globals for lazy-loaded models ───────────────────────────
-_nuextract_model = None
-_nuextract_tokenizer = None
+# ── Globals for lazy-loaded model ────────────────────────────
 _medgemma_model = None
 _medgemma_tokenizer = None
-
-
-def _load_nuextract():
-    """Lazy-load the NuExtract model and tokenizer."""
-    global _nuextract_model, _nuextract_tokenizer
-    if _nuextract_model is not None:
-        return _nuextract_model, _nuextract_tokenizer
-
-    from transformers import AutoModelForCausalLM, AutoTokenizer
-    import torch
-
-    print(f"Loading NuExtract model: {config.NUEXTRACT_MODEL}")
-    _nuextract_tokenizer = AutoTokenizer.from_pretrained(
-        config.NUEXTRACT_MODEL,
-        trust_remote_code=True,
-    )
-    _nuextract_model = AutoModelForCausalLM.from_pretrained(
-        config.NUEXTRACT_MODEL,
-        trust_remote_code=True,
-        torch_dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
-        device_map=config.NUEXTRACT_DEVICE,
-    )
-    _nuextract_model.eval()
-    print(f"NuExtract loaded on {next(_nuextract_model.parameters()).device}")
-    return _nuextract_model, _nuextract_tokenizer
 
 
 def _load_medgemma():
@@ -66,32 +39,6 @@ def _load_medgemma():
     print(f"MedGemma loaded on {next(_medgemma_model.parameters()).device}")
     return _medgemma_model, _medgemma_tokenizer
 
-
-def generate_nuextract(text: str, template: Dict[str, Any], max_tokens: int = None) -> str:
-    """Run NuExtract extraction with a JSON template.
-
-    NuExtract expects input formatted as:
-        <|input|>\\n{text}\\n<|template|>\\n{template_json}\\n<|output|>
-    """
-    model, tokenizer = _load_nuextract()
-    max_tokens = max_tokens or config.EXTRACTION_MAX_TOKENS
-
-    template_str = json.dumps(template, indent=2)
-    prompt = f"<|input|>\n{text}\n<|template|>\n{template_str}\n<|output|>\n"
-
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-
-    with __import__("torch").no_grad():
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=max_tokens,
-            temperature=config.TEMPERATURE,
-            do_sample=False,
-            pad_token_id=tokenizer.eos_token_id,
-        )
-
-    generated = tokenizer.decode(outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
-    return generated.strip()
 
 
 def generate_medgemma(prompt: str, max_tokens: int = None) -> str:

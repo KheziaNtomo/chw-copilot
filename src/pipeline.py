@@ -1,7 +1,7 @@
 """CHW Copilot pipeline orchestrator.
 
 Runs the full encounter processing pipeline:
-  1. Extract structured encounter from CHW note (NuExtract / MedGemma / stub)
+  1. Extract structured encounter from CHW note (MedGemma / stub)
   2. Validate and enforce evidence grounding
   3. Tag syndrome (MedGemma / deterministic)
   4. Generate checklist of missing info (MedGemma / deterministic)
@@ -26,7 +26,7 @@ def process_encounter(
     encounter_id: str = "unknown",
     location_id: str = "unknown",
     week_id: int = 0,
-    extractor: str = "nuextract",
+    extractor: str = "medgemma",
     use_model_tagger: bool = True,
     use_model_checklist: bool = True,
 ) -> Dict[str, Any]:
@@ -37,7 +37,7 @@ def process_encounter(
         encounter_id: Unique encounter identifier
         location_id: Location where encounter occurred
         week_id: Epidemiological week number
-        extractor: "nuextract", "medgemma", or "stub"
+        extractor: "medgemma" or "stub"
         use_model_tagger: Use MedGemma for syndrome tagging (vs deterministic)
         use_model_checklist: Use MedGemma for checklist (vs deterministic)
 
@@ -47,10 +47,7 @@ def process_encounter(
     start = time.time()
 
     # Step 1: Extract structured encounter
-    if extractor == "nuextract":
-        from .extraction import extract_with_nuextract
-        encounter = extract_with_nuextract(note_text, encounter_id, location_id, week_id)
-    elif extractor == "medgemma":
+    if extractor == "medgemma":
         from .extraction import extract_with_medgemma
         encounter = extract_with_medgemma(note_text, encounter_id, location_id, week_id)
     else:
@@ -97,7 +94,7 @@ def process_encounter(
 
 def process_batch(
     notes: List[Dict[str, Any]],
-    extractor: str = "nuextract",
+    extractor: str = "medgemma",
     use_model_tagger: bool = True,
     use_model_checklist: bool = True,
     progress_callback=None,

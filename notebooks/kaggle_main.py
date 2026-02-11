@@ -1,14 +1,21 @@
+# ---
+# jupyter:
+#   jupytext:
+#     cell_metadata_filter: -all
+#     main_language: python
+#     notebook_metadata_filter: -all
+# ---
+
 # %% [markdown]
 # # CHW Copilot — End-to-End Pipeline on Kaggle
 #
 # **Competition:** Google AI Assistants for Data Tasks with Gemma
 #
-# This notebook runs the full CHW Copilot pipeline on Kaggle GPU:
-# 1. Load NuExtract for structured extraction
-# 2. Load MedGemma for syndrome tagging, checklist, and SITREP
-# 3. Process gold notes end-to-end
-# 4. Evaluate extraction quality
-# 5. Run surveillance pipeline
+# This notebook runs the full CHW Copilot pipeline on Kaggle GPU using **MedGemma only**:
+# 1. Load MedGemma-4b-it for extraction, syndrome tagging, checklist, and SITREP
+# 2. Extract structured encounters from typed CHW notes
+# 3. Evaluate extraction quality
+# 4. Run surveillance pipeline
 #
 # **Runtime:** Kaggle T4 GPU (16GB VRAM)
 #
@@ -35,14 +42,15 @@ warnings.filterwarnings("ignore")
 # Detect environment
 IS_KAGGLE = os.path.exists("/kaggle/working")
 if IS_KAGGLE:
-    ROOT = Path("/kaggle/working")
-    # If repo files are uploaded as a Kaggle dataset, adjust path:
-    # ROOT = Path("/kaggle/input/chw-copilot")
+    ROOT = Path("/kaggle/input/chw-copilot")
+    OUT_DIR = Path("/kaggle/working")
 else:
     ROOT = Path(".")
+    OUT_DIR = Path(".")
 
 print(f"Environment: {'Kaggle' if IS_KAGGLE else 'Local'}")
-print(f"Root: {ROOT}")
+print(f"Root (input): {ROOT}")
+print(f"Output dir: {OUT_DIR}")
 print(f"GPU available: {torch.cuda.is_available()}")
 if torch.cuda.is_available():
     print(f"GPU: {torch.cuda.get_device_name(0)}")
@@ -84,11 +92,13 @@ sitrep_schema = load_schema("sitrep")
 print("All schemas loaded ✅")
 
 # %% [markdown]
-# ## 2. Load Models
+# ## 2. Load MedGemma
 #
-# Two models:
-# - **NuExtract-1.5** (numind) — structured extraction from text
-# - **MedGemma-4b-it** (Google) — medical reasoning
+# **MedGemma-4b-it** (Google) — handles everything:
+# - Structured extraction from typed CHW notes
+# - Syndrome tagging
+# - Checklist generation
+# - SITREP generation
 #
 # > **Note:** MedGemma is a gated model. You need to:
 # > 1. Accept the license at https://huggingface.co/google/medgemma-4b-it
@@ -112,23 +122,6 @@ else:
         print("HF_TOKEN loaded from environment ✅")
     else:
         print("⚠️  No HF_TOKEN set — MedGemma may fail to load")
-
-# %%
-# Load NuExtract
-print("Loading NuExtract-1.5...")
-t0 = time.time()
-
-NUEXTRACT_ID = "numind/NuExtract-1.5"
-nu_tokenizer = AutoTokenizer.from_pretrained(NUEXTRACT_ID, trust_remote_code=True)
-nu_model = AutoModelForCausalLM.from_pretrained(
-    NUEXTRACT_ID,
-    trust_remote_code=True,
-    torch_dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
-    device_map="auto",
-)
-nu_model.eval()
-device = next(nu_model.parameters()).device
-print(f"NuExtract loaded on {device} in {time.time()-t0:.1f}s ✅")
 
 # %%
 # Load MedGemma
@@ -177,21 +170,6 @@ def parse_json_response(text):
     return None
 
 
-def run_nuextract(text, template, max_new_tokens=1024):
-    """Run NuExtract with a JSON template."""
-    template_str = json.dumps(template, indent=2)
-    prompt = f"<|input|>\n{text}\n<|template|>\n{template_str}\n<|output|>\n"
-    inputs = nu_tokenizer(prompt, return_tensors="pt").to(nu_model.device)
-    with torch.no_grad():
-        outputs = nu_model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            do_sample=False,
-            pad_token_id=nu_tokenizer.eos_token_id,
-        )
-    return nu_tokenizer.decode(outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True).strip()
-
-
 def run_medgemma(prompt, max_new_tokens=512):
     """Run MedGemma with chat template."""
     messages = [{"role": "user", "content": prompt}]
@@ -236,57 +214,26 @@ def enforce_evidence(encounter, note_text):
     return encounter, downgrades
 
 # %% [markdown]
-# ## 4. NuExtract Template
-
-# %%
-# Template matching our encounter schema
-NUEXTRACT_TEMPLATE = {
-    "patient": {
-        "patient_id": "",
-        "age_group": "",
-        "age_years": "",
-        "sex": "",
-    },
-    "symptoms": {
-        "fever": {"value": "", "evidence_quote": ""},
-        "cough": {"value": "", "evidence_quote": ""},
-        "watery_diarrhea": {"value": "", "evidence_quote": ""},
-        "bloody_diarrhea": {"value": "", "evidence_quote": ""},
-        "vomiting": {"value": "", "evidence_quote": ""},
-        "rash": {"value": "", "evidence_quote": ""},
-        "difficulty_breathing": {"value": "", "evidence_quote": ""},
-    },
-    "other_symptoms": {},
-    "onset_days": "",
-    "severity": "",
-    "red_flags": [],
-    "treatments_given": [],
-    "referral": {"value": "", "destination": "", "evidence_quote": ""},
-    "follow_up": {"value": "", "follow_up_date": "", "evidence_quote": ""},
-}
-
-print("NuExtract template ready ✅")
-
-# %% [markdown]
-# ## 5. Quick Smoke Test (1 Note)
+# ## 4. Quick Smoke Test (1 Note)
 
 # %%
 test_note = "Child 3yo male fever 3 days cough bad difficulty breathing rash on chest no diarrhea mother says not eating gave ORS referred health center"
 
-print("=== NuExtract Extraction ===")
+print("=== MedGemma Extraction ===")
 t0 = time.time()
-raw_nu = run_nuextract(test_note, NUEXTRACT_TEMPLATE)
-print(f"NuExtract time: {time.time()-t0:.1f}s")
-parsed_nu = parse_json_response(raw_nu)
-if parsed_nu:
-    print(json.dumps(parsed_nu, indent=2)[:800])
+extract_prompt = extraction_prompt.replace("{note_text}", test_note)
+raw_extract = run_medgemma(extract_prompt, max_new_tokens=1024)
+print(f"MedGemma extraction time: {time.time()-t0:.1f}s")
+parsed_extract = parse_json_response(raw_extract)
+if parsed_extract:
+    print(json.dumps(parsed_extract, indent=2)[:800])
 else:
-    print("⚠️ Failed to parse NuExtract output:")
-    print(raw_nu[:500])
+    print("⚠️ Failed to parse extraction output:")
+    print(raw_extract[:500])
 
 # %%
 print("=== MedGemma Syndrome Tagging ===")
-tag_prompt = syndrome_prompt.replace("{encounter_json}", json.dumps(parsed_nu or {}, indent=2))
+tag_prompt = syndrome_prompt.replace("{encounter_json}", json.dumps(parsed_extract or {}, indent=2))
 tag_prompt = tag_prompt.replace("{note_text}", test_note)
 t0 = time.time()
 raw_tag = run_medgemma(tag_prompt)
@@ -300,7 +247,7 @@ else:
 
 # %%
 print("=== MedGemma Checklist ===")
-cl_prompt = checklist_prompt.replace("{encounter_json}", json.dumps(parsed_nu or {}, indent=2))
+cl_prompt = checklist_prompt.replace("{encounter_json}", json.dumps(parsed_extract or {}, indent=2))
 cl_prompt = cl_prompt.replace("{note_text}", test_note)
 t0 = time.time()
 raw_cl = run_medgemma(cl_prompt)
@@ -313,7 +260,7 @@ else:
     print(raw_cl[:500])
 
 # %% [markdown]
-# ## 6. Full Pipeline Function
+# ## 5. Full Pipeline Function
 
 # %%
 def process_note(note_text, encounter_id, location_id, week_id):
@@ -321,15 +268,16 @@ def process_note(note_text, encounter_id, location_id, week_id):
     result = {"encounter_id": encounter_id, "errors": []}
     t0 = time.time()
 
-    # Step 1: Extract with NuExtract
+    # Step 1: Extract with MedGemma
     try:
-        raw = run_nuextract(note_text, NUEXTRACT_TEMPLATE)
+        ext_prompt = extraction_prompt.replace("{note_text}", note_text)
+        raw = run_medgemma(ext_prompt, max_new_tokens=1024)
         parsed = parse_json_response(raw)
         if parsed is None:
-            result["errors"].append("nuextract_parse_fail")
+            result["errors"].append("extraction_parse_fail")
             parsed = {}
     except Exception as e:
-        result["errors"].append(f"nuextract_error: {e}")
+        result["errors"].append(f"extraction_error: {e}")
         parsed = {}
 
     # Normalize symptoms
@@ -464,7 +412,7 @@ def process_note(note_text, encounter_id, location_id, week_id):
 print("Pipeline function defined ✅")
 
 # %% [markdown]
-# ## 7. Run on Gold Notes
+# ## 6. Run on Gold Notes
 
 # %%
 # Load gold notes
@@ -500,7 +448,7 @@ avg_time = sum(r["processing_time_s"] for r in results) / len(results)
 print(f"Average time per note: {avg_time:.1f}s")
 
 # %% [markdown]
-# ## 8. Evaluation
+# ## 7. Evaluation
 
 # %%
 from collections import Counter
@@ -591,7 +539,7 @@ for k in sorted(symptom_stats):
     print(f"  {k:25s}: yes={s['yes']:3d}  no={s['no']:3d}  unknown={s['unknown']:3d}")
 
 # %% [markdown]
-# ## 9. Surveillance — Anomaly Detection & SITREP
+# ## 8. Surveillance — Anomaly Detection & SITREP
 
 # %%
 # Aggregate to weekly counts
@@ -655,13 +603,12 @@ if sim_path.exists() and not anomalies.empty:
         print(raw_sitrep[:800])
 
 # %% [markdown]
-# ## 10. Save Results
+# ## 9. Save Results
 
 # %%
 # Save processed results
 output = {
-    "model_nuextract": NUEXTRACT_ID,
-    "model_medgemma": MEDGEMMA_ID,
+    "model": MEDGEMMA_ID,
     "n_notes_processed": len(results),
     "avg_processing_time_s": round(avg_time, 2),
     "syndrome_accuracy": round(accuracy, 3),
@@ -671,7 +618,7 @@ output = {
     "checklists": [r["checklist"] for r in results],
 }
 
-out_path = ROOT / "data_synth" / "pipeline_results.json"
+out_path = OUT_DIR / "pipeline_results.json"
 with open(out_path, "w", encoding="utf-8") as f:
     json.dump(output, f, indent=2, default=str)
 print(f"Results saved to {out_path} ✅")
@@ -684,4 +631,4 @@ print(f"Notes processed:        {len(results)}")
 print(f"Syndrome accuracy:      {accuracy:.1%}")
 print(f"Evidence grounding:     {grounded_claims}/{total_claims} ({grounded_claims/max(total_claims,1):.1%})")
 print(f"Avg time per note:      {avg_time:.1f}s")
-print(f"Models: NuExtract={NUEXTRACT_ID}, MedGemma={MEDGEMMA_ID}")
+print(f"Model: {MEDGEMMA_ID}")

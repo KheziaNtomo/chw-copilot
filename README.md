@@ -7,7 +7,7 @@ Offline-first, privacy-focused tool that turns Community Health Worker (CHW) fie
 ## Architecture
 
 ```
-CHW Note → [NuExtract] → Structured Encounter JSON (schema-validated + evidence-grounded)
+CHW Note → [MedGemma] → Structured Encounter JSON (schema-validated + evidence-grounded)
                 ↓
          [MedGemma] → Syndrome Tag + Checklist of missing questions
                 ↓
@@ -17,8 +17,7 @@ CHW Note → [NuExtract] → Structured Encounter JSON (schema-validated + evide
 ```
 
 ### Models
-- **NuExtract** (NuMind, HuggingFace): Structured information extraction from free-text notes
-- **MedGemma** (Google HAI-DEF): Medical reasoning — syndrome classification, checklist generation, SITREP narrative
+- **MedGemma-4b-it** (Google HAI-DEF): All pipeline tasks — structured extraction from typed CHW notes, syndrome classification, checklist generation, SITREP narrative
 
 ### Scope (frozen)
 - **Inputs**: Typed CHW notes

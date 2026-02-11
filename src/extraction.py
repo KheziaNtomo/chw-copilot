@@ -1,6 +1,6 @@
-"""Structured extraction from CHW notes using NuExtract or stub fallback.
+"""Structured extraction from CHW notes using MedGemma or stub fallback.
 
-Primary: Uses NuExtract model for template-based structured extraction.
+Primary: Uses MedGemma model with specialist_extraction prompt.
 Fallback: Uses the keyword-based stub extractor when models are not available.
 """
 import json
@@ -8,42 +8,6 @@ from pathlib import Path
 from typing import Dict, Any
 
 from . import config
-
-
-# ── NuExtract template matching our encounter schema ────────
-EXTRACTION_TEMPLATE = {
-    "patient": {
-        "patient_id": "",
-        "age_group": "",
-        "age_years": "",
-        "sex": "",
-        "pregnancy_status": ""
-    },
-    "symptoms": {
-        "fever": {"value": "", "evidence_quote": ""},
-        "cough": {"value": "", "evidence_quote": ""},
-        "watery_diarrhea": {"value": "", "evidence_quote": ""},
-        "bloody_diarrhea": {"value": "", "evidence_quote": ""},
-        "vomiting": {"value": "", "evidence_quote": ""},
-        "rash": {"value": "", "evidence_quote": ""},
-        "difficulty_breathing": {"value": "", "evidence_quote": ""}
-    },
-    "other_symptoms": {},
-    "onset_days": "",
-    "severity": "",
-    "red_flags": [],
-    "treatments_given": [],
-    "referral": {
-        "value": "",
-        "destination": "",
-        "evidence_quote": ""
-    },
-    "follow_up": {
-        "value": "",
-        "follow_up_date": "",
-        "evidence_quote": ""
-    }
-}
 
 
 def _load_prompt() -> str:
@@ -196,23 +160,6 @@ def _postprocess_extraction(raw: Dict[str, Any], note_text: str,
     return encounter
 
 
-def extract_with_nuextract(note_text: str, encounter_id: str = "unknown",
-                            location_id: str = "unknown",
-                            week_id: int = 0) -> Dict[str, Any]:
-    """Extract structured encounter from a CHW note using NuExtract.
-
-    Falls back to the MedGemma prompt-based extraction if NuExtract is unavailable.
-    """
-    from .models import generate_nuextract, parse_json_response
-
-    raw_output = generate_nuextract(note_text, EXTRACTION_TEMPLATE)
-    parsed = parse_json_response(raw_output)
-
-    if parsed is None:
-        print(f"  WARNING: NuExtract returned unparseable output for {encounter_id}")
-        return stub_extract_full(note_text, encounter_id, location_id, week_id)
-
-    return _postprocess_extraction(parsed, note_text, encounter_id, location_id, week_id)
 
 
 def extract_with_medgemma(note_text: str, encounter_id: str = "unknown",
