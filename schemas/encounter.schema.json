@@ -1,0 +1,195 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CHW Encounter",
+  "description": "Structured encounter extracted from a Community Health Worker note. Every 'yes' symptom claim MUST include an evidence_quote that is a verbatim substring of the source note.",
+  "type": "object",
+  "required": [
+    "encounter_id", "location_id", "week_id", "note_text",
+    "chw_id", "area_id", "household_id",
+    "patient", "symptoms", "onset_days", "severity"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "encounter_id": { "type": "string" },
+    "location_id": { "type": "string" },
+    "week_id": { "type": "integer" },
+    "note_text": { "type": "string", "description": "Original CHW note verbatim" },
+
+    "chw_id": {
+      "type": "string",
+      "description": "Identifier or name of the community health worker; 'unknown' if not stated"
+    },
+    "visit_date": {
+      "type": ["string", "null"],
+      "description": "ISO date YYYY-MM-DD if stated; otherwise null",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "visit_datetime": {
+      "type": ["string", "null"],
+      "description": "ISO datetime if stated; otherwise null"
+    },
+    "encounter_sequence": {
+      "type": ["integer", "null"],
+      "description": "Order of this encounter within the worker's day if stated; otherwise null"
+    },
+
+    "area_id": {
+      "type": "string",
+      "description": "Village/ward/neighbourhood/sub-location within location_id; 'unknown' if not stated"
+    },
+    "household_id": {
+      "type": "string",
+      "description": "Household/compound identifier; 'unknown' if not stated"
+    },
+    "gps": {
+      "type": ["object", "null"],
+      "description": "GPS coordinates if stated; null otherwise",
+      "properties": {
+        "lat": { "type": "number" },
+        "lon": { "type": "number" },
+        "accuracy_m": { "type": ["number", "null"] }
+      },
+      "required": ["lat", "lon"],
+      "additionalProperties": false
+    },
+
+    "patient": {
+      "type": "object",
+      "required": ["age_group", "sex"],
+      "additionalProperties": false,
+      "properties": {
+        "patient_id": {
+          "type": "string",
+          "description": "Registry/household member identifier; 'unknown' if not stated"
+        },
+        "age_group": {
+          "type": "string",
+          "enum": ["infant", "child", "adolescent", "adult", "elderly", "unknown"]
+        },
+        "age_years": {
+          "type": ["integer", "null"],
+          "description": "Exact age in years if stated; otherwise null"
+        },
+        "sex": {
+          "type": "string",
+          "enum": ["male", "female", "unknown"]
+        },
+        "pregnancy_status": {
+          "$ref": "#/definitions/symptom_claim",
+          "description": "Only include if relevant; uses same {value, evidence_quote} rules"
+        }
+      }
+    },
+
+    "symptoms": {
+      "type": "object",
+      "required": ["fever", "cough", "watery_diarrhea", "bloody_diarrhea", "vomiting", "rash", "difficulty_breathing"],
+      "properties": {
+        "fever":                { "$ref": "#/definitions/symptom_claim" },
+        "cough":                { "$ref": "#/definitions/symptom_claim" },
+        "watery_diarrhea":      { "$ref": "#/definitions/symptom_claim" },
+        "bloody_diarrhea":      { "$ref": "#/definitions/symptom_claim" },
+        "vomiting":             { "$ref": "#/definitions/symptom_claim" },
+        "rash":                 { "$ref": "#/definitions/symptom_claim" },
+        "difficulty_breathing": { "$ref": "#/definitions/symptom_claim" }
+      },
+      "additionalProperties": false
+    },
+
+    "other_symptoms": {
+      "type": "object",
+      "description": "Additional symptoms beyond the core set. Keys are snake_case symptom names (e.g. headache, sore_throat, abdominal_pain). Values use the same evidence rules.",
+      "additionalProperties": { "$ref": "#/definitions/symptom_claim" }
+    },
+
+    "onset_days": {
+      "description": "Number of days since symptom onset, or null if not stated",
+      "type": ["integer", "null"]
+    },
+    "severity": {
+      "description": "Overall severity impression from the note",
+      "type": "string",
+      "enum": ["mild", "moderate", "severe", "unknown"]
+    },
+    "red_flags": {
+      "type": "array",
+      "description": "List of urgent/danger signs found in the note",
+      "items": {
+        "type": "object",
+        "required": ["flag", "evidence_quote"],
+        "additionalProperties": false,
+        "properties": {
+          "flag": {
+            "type": "string",
+            "enum": [
+              "dehydration_signs",
+              "unable_to_drink",
+              "persistent_vomiting",
+              "blood_in_stool",
+              "high_fever",
+              "convulsions",
+              "altered_consciousness",
+              "severe_malnutrition",
+              "chest_indrawing"
+            ]
+          },
+          "evidence_quote": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+
+    "treatments_given": {
+      "type": "array",
+      "description": "Medications/ORS/fluids etc. mentioned; empty array if none stated",
+      "items": { "type": "string" }
+    },
+    "referral": {
+      "type": ["object", "null"],
+      "description": "Referral information; null if not stated",
+      "properties": {
+        "value": { "type": "string", "enum": ["yes", "no", "unknown"] },
+        "destination": { "type": "string" },
+        "evidence_quote": { "type": ["string", "null"] }
+      },
+      "required": ["value", "destination"],
+      "additionalProperties": false
+    },
+    "follow_up": {
+      "type": ["object", "null"],
+      "description": "Follow-up plan; null if not stated",
+      "properties": {
+        "value": { "type": "string", "enum": ["yes", "no", "unknown"] },
+        "follow_up_date": { "type": ["string", "null"] },
+        "evidence_quote": { "type": ["string", "null"] }
+      },
+      "required": ["value"],
+      "additionalProperties": false
+    }
+  },
+  "definitions": {
+    "symptom_claim": {
+      "type": "object",
+      "required": ["value", "evidence_quote"],
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "type": "string",
+          "enum": ["yes", "no", "unknown"]
+        },
+        "evidence_quote": {
+          "description": "Verbatim substring from note_text supporting this claim. Required when value is 'yes', must be null when value is 'unknown' or 'no'.",
+          "type": ["string", "null"]
+        }
+      },
+      "if": {
+        "properties": { "value": { "const": "yes" } }
+      },
+      "then": {
+        "properties": { "evidence_quote": { "type": "string", "minLength": 1 } }
+      },
+      "else": {
+        "properties": { "evidence_quote": { "const": null } }
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+pandas>=2.0
+jsonschema>=4.17
+streamlit>=1.30
+plotly>=5.18
+folium>=0.15
+streamlit-folium>=0.18
+transformers>=4.40
+torch>=2.1
+accelerate>=0.27
+pythea @ git+https://github.com/leochlon/pythea.git

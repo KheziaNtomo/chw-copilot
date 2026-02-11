@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CHW Checklist",
+  "description": "Missing-information checklist generated from an extracted encounter. Each question must correspond to an unknown/null field in the encounter.",
+  "type": "object",
+  "required": ["encounter_id", "questions"],
+  "additionalProperties": false,
+  "properties": {
+    "encounter_id": { "type": "string" },
+    "questions": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": ["field", "question", "priority"],
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "type": "string",
+            "description": "The encounter field this question aims to fill (e.g. 'symptoms.fever', 'onset_days', 'patient.age_group')"
+          },
+          "question": {
+            "type": "string",
+            "description": "Plain-language question for the CHW to ask the patient"
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["high", "medium", "low"],
+            "description": "Clinical priority of obtaining this information"
+          }
+        }
+      }
+    }
+  }
+}

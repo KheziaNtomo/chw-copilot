@@ -1,0 +1,14 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Synth outputs
+data_synth/
+__pycache__/
+.ipynb_checkpoints/
+.env
+*.pyc
+data_raw/

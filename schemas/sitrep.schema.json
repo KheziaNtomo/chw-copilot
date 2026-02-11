@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Weekly SITREP",
+  "description": "Structured weekly situation report generated from anomaly and count data. All numbers must be verifiable against source tables. Language must be syndromic (not diagnostic).",
+  "type": "object",
+  "required": ["report_week", "generated_at", "total_encounters", "alerts", "summary_text", "data_quality", "limitations"],
+  "additionalProperties": false,
+  "properties": {
+    "report_week": { "type": "integer" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "total_encounters": {
+      "type": "integer",
+      "description": "Total encounters across all locations for this week"
+    },
+    "alerts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["location_id", "syndrome_tag", "current_count", "baseline_mean", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "location_id": { "type": "string" },
+          "syndrome_tag": {
+            "type": "string",
+            "enum": ["respiratory_fever", "acute_watery_diarrhea", "other", "unclear"]
+          },
+          "current_count": { "type": "integer", "minimum": 0 },
+          "baseline_mean": { "type": "number", "minimum": 0 },
+          "status": {
+            "type": "string",
+            "enum": ["alert", "watch", "normal"]
+          }
+        }
+      }
+    },
+    "summary_text": {
+      "type": "string",
+      "description": "Human-readable narrative. Must NOT use diagnostic language (e.g., 'cholera outbreak'). Use syndromic terms only (e.g., 'increase in acute watery diarrhea syndrome')."
+    },
+    "data_quality": {
+      "type": "object",
+      "required": ["completeness_pct", "notes"],
+      "properties": {
+        "completeness_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    }
+  }
+}
