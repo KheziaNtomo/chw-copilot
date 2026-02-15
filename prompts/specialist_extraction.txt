@@ -56,4 +56,41 @@ ACTIONS & OUTCOMES (extract if stated):
 CHW NOTE:
 {note_text}
 
+RESPONSE FORMAT (Strict JSON):
+{
+  "symptoms": {
+    "fever": { "value": "yes", "evidence_quote": "exact quote from note", "duration": "3 days" },
+    "cough": { "value": "no", "evidence_quote": null, "duration": null },
+    "watery_diarrhea": { "value": "unknown", "evidence_quote": null, "duration": null },
+    ... (include all core symptoms)
+  },
+  "other_symptoms": {
+    "headache": { "value": "yes", "evidence_quote": "complains of headache", "duration": "since morning" }
+  },
+  "red_flags": [
+    { "flag": "danger_sign_name", "evidence_quote": "exact quote" }
+  ],
+  "patient": {
+    "age_group": "child",
+    "age_years": 3,
+    "sex": "female",
+    "patient_id": "unknown",
+    "pregnancy_status": { "value": "no", "evidence_quote": null }
+  },
+  "encounter_metadata": {
+    "chw_id": "unknown",
+    "visit_date": "YYYY-MM-DD",
+    "visit_datetime": null,
+    "encounter_sequence": null,
+    "area_id": "unknown",
+    "household_id": "unknown",
+    "gps": null
+  },
+  "actions_outcomes": {
+    "treatments_given": ["ORS", "Zinc"],
+    "referral": { "value": "yes", "destination": "health center", "evidence_quote": "referred to HC" },
+    "follow_up": { "value": "yes", "follow_up_date": "2024-03-10", "evidence_quote": "visit tomorrow" }
+  }
+}
+
 Return ONLY the JSON object. No explanation, no markdown fences.
