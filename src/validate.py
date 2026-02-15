@@ -4,7 +4,9 @@ Uses jsonschema for structural validation and custom logic for evidence groundin
 """
 import json
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
+import difflib
+import re
 
 try:
     import jsonschema
@@ -37,6 +39,56 @@ def validate_json_schema(data: Dict[str, Any], schema_name: str) -> Tuple[bool, 
     return len(messages) == 0, messages
 
 
+def locate_evidence(quote: str, text: str, threshold: float = 0.8) -> tuple[Optional[str], float]:
+    """Find the best fuzzy match for a quote in the text.
+    
+    Returns (best_match_substring, score).
+    If strict substring exists, returns (quote, 1.0).
+    Otherwise searches for best approximate match.
+    """
+    if not quote or not text:
+        return None, 0.0
+    
+    quote = quote.strip()
+    text_clean = text.replace("\n", " ")
+    
+    # 1. Exact match check (case-insensitive)
+    if quote.lower() in text.lower():
+        # Find the exact original casing in text
+        start = text.lower().find(quote.lower())
+        return text[start:start+len(quote)], 1.0
+        
+    # 2. Fuzzy match using sliding window of words
+    quote_words = quote.split()
+    text_words = text_clean.split()
+    n_q = len(quote_words)
+    
+    best_score = 0.0
+    best_match = None
+    
+    # Try windows of size n_q, n_q+1, n_q-1 to account for minor token insertions/deletions
+    # limit window size to avoid performance hit on long texts (though CHW notes are short)
+    for window_len in range(max(1, n_q - 2), n_q + 3):
+        for i in range(len(text_words) - window_len + 1):
+            window = text_words[i : i + window_len]
+            window_str = " ".join(window)
+            
+            # Use quick ratio first
+            matcher = difflib.SequenceMatcher(None, quote.lower(), window_str.lower())
+            if matcher.quick_ratio() < threshold:
+                continue
+                
+            score = matcher.ratio()
+            if score > best_score:
+                best_score = score
+                best_match = window_str
+                
+    if best_score >= threshold:
+        return best_match, best_score
+    return None, best_score
+
+
+
 def enforce_evidence(encounter: Dict[str, Any], note_text: str) -> Tuple[Dict[str, Any], List[str]]:
     """Ensure every 'yes' symptom has an evidence_quote that appears verbatim in note_text.
 
@@ -55,27 +107,50 @@ def enforce_evidence(encounter: Dict[str, Any], note_text: str) -> Tuple[Dict[st
         val = v.get("value")
         quote = v.get("evidence_quote")
         if val == "yes":
-            if not quote or quote.lower() not in note:
+            if not quote:
                 encounter["symptoms"][k]["value"] = "unknown"
                 encounter["symptoms"][k]["evidence_quote"] = None
                 downgraded.append(f"symptoms.{k}")
+            else:
+                match, score = locate_evidence(quote, note)
+                if match:
+                    # Update with the actual text found (fixes minor typos/paraphrasing)
+                    encounter["symptoms"][k]["evidence_quote"] = match
+                else:
+                    # No match found even with fuzzy logic
+                    encounter["symptoms"][k]["value"] = "unknown"
+                    encounter["symptoms"][k]["evidence_quote"] = None
+                    downgraded.append(f"symptoms.{k}")
 
     # Check other_symptoms (extensible)
     for k, v in list(encounter.get("other_symptoms", {}).items()):
         val = v.get("value")
         quote = v.get("evidence_quote")
         if val == "yes":
-            if not quote or quote.lower() not in note:
+            if not quote: 
                 encounter["other_symptoms"][k]["value"] = "unknown"
                 encounter["other_symptoms"][k]["evidence_quote"] = None
                 downgraded.append(f"other_symptoms.{k}")
+            else:
+                match, score = locate_evidence(quote, note)
+                if match:
+                    encounter["other_symptoms"][k]["evidence_quote"] = match
+                else:
+                    encounter["other_symptoms"][k]["value"] = "unknown"
+                    encounter["other_symptoms"][k]["evidence_quote"] = None
+                    downgraded.append(f"other_symptoms.{k}")
 
     # Check red_flags evidence
     valid_flags = []
     for flag in encounter.get("red_flags", []):
         quote = flag.get("evidence_quote", "")
-        if quote and quote.lower() in note:
-            valid_flags.append(flag)
+        if quote:
+            match, score = locate_evidence(quote, note)
+            if match:
+                flag["evidence_quote"] = match
+                valid_flags.append(flag)
+            else:
+                downgraded.append(f"red_flag:{flag.get('flag', '?')}")
         else:
             downgraded.append(f"red_flag:{flag.get('flag', '?')}")
     if "red_flags" in encounter:
@@ -85,7 +160,10 @@ def enforce_evidence(encounter: Dict[str, Any], note_text: str) -> Tuple[Dict[st
     referral = encounter.get("referral")
     if referral and referral.get("value") == "yes":
         quote = referral.get("evidence_quote", "")
-        if not quote or quote.lower() not in note:
+        match, score = locate_evidence(quote, note)
+        if match:
+             encounter["referral"]["evidence_quote"] = match
+        else:
             encounter["referral"]["value"] = "unknown"
             encounter["referral"]["evidence_quote"] = None
             downgraded.append("referral")
@@ -94,7 +172,10 @@ def enforce_evidence(encounter: Dict[str, Any], note_text: str) -> Tuple[Dict[st
     follow_up = encounter.get("follow_up")
     if follow_up and follow_up.get("value") == "yes":
         quote = follow_up.get("evidence_quote", "")
-        if not quote or quote.lower() not in note:
+        match, score = locate_evidence(quote, note)
+        if match:
+             encounter["follow_up"]["evidence_quote"] = match
+        else:
             encounter["follow_up"]["value"] = "unknown"
             encounter["follow_up"]["evidence_quote"] = None
             downgraded.append("follow_up")
@@ -103,7 +184,10 @@ def enforce_evidence(encounter: Dict[str, Any], note_text: str) -> Tuple[Dict[st
     preg = encounter.get("patient", {}).get("pregnancy_status")
     if preg and preg.get("value") == "yes":
         quote = preg.get("evidence_quote", "")
-        if not quote or quote.lower() not in note:
+        match, score = locate_evidence(quote, note)
+        if match:
+             encounter["patient"]["pregnancy_status"]["evidence_quote"] = match
+        else:
             encounter["patient"]["pregnancy_status"]["value"] = "unknown"
             encounter["patient"]["pregnancy_status"]["evidence_quote"] = None
             downgraded.append("patient.pregnancy_status")

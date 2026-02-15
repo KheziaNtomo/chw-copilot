@@ -169,7 +169,8 @@ def _postprocess_extraction(raw: Dict[str, Any], note_text: str,
 
 def extract_with_medgemma(note_text: str, encounter_id: str = "unknown",
                            location_id: str = "unknown",
-                           week_id: int = 0) -> Dict[str, Any]:
+                           week_id: int = 0,
+                           feedback: str = None) -> Dict[str, Any]:
     """Extract structured encounter from a CHW note using MedGemma prompt.
 
     Uses the specialist_extraction prompt for full structured output.
@@ -178,6 +179,9 @@ def extract_with_medgemma(note_text: str, encounter_id: str = "unknown",
 
     prompt_template = _load_prompt()
     prompt = prompt_template.replace("{note_text}", note_text)
+
+    if feedback:
+        prompt += f"\n\nPREVIOUS ATTEMPT FEEDBACK:\n{feedback}\n\nPlease correct your extraction based on this feedback."
     raw_output = generate_medgemma(prompt, max_tokens=config.EXTRACTION_MAX_TOKENS)
     parsed = parse_json_response(raw_output)
 

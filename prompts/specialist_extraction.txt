@@ -4,7 +4,7 @@ TASK: Extract structured clinical information from the CHW note below. Return ON
 
 RULES:
 1. For each symptom, set value to "yes", "no", or "unknown".
-2. If value is "yes", you MUST include an evidence_quote that is a VERBATIM substring copied from the note.
+2. If value is "yes", you MUST include an evidence_quote that is a VERBATIM, CHARACTER-FOR-CHARACTER substring copied from the note. Do NOT fix typos. Do NOT change numbers (e.g. "3" vs "three"). Do NOT paraphrase. If you cannot copy exactly, do not extract it.
 3. If value is "unknown" or "no", evidence_quote MUST be null.
 4. For each symptom with value "yes", also extract duration if stated (e.g., "3 days", "1 week", "since yesterday"). Set to null if not stated.
 5. For onset_days: extract number of days if stated (e.g., "3 days" → 3), otherwise null.

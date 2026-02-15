@@ -36,10 +36,8 @@ def tag_syndrome_medgemma(encounter: Dict[str, Any]) -> Dict[str, Any]:
         "onset_days": encounter.get("onset_days"),
     }, indent=2)
 
-    note_text = encounter.get("note_text", "")
-
     prompt = prompt_template.replace("{encounter_json}", encounter_summary)
-    prompt = prompt.replace("{note_text}", note_text)
+    # Note text removed from prompt to enforce safety (rely only on extracted JSON)
 
     raw_output = generate_medgemma(prompt, max_tokens=config.REASONING_MAX_TOKENS)
     parsed = parse_json_response(raw_output)
@@ -119,13 +117,18 @@ def tag_syndrome_deterministic(encounter: Dict[str, Any]) -> Dict[str, Any]:
         confidence = "medium"
         if get_quote("fever"):
             trigger_quotes.append(get_quote("fever"))
-    elif any(is_yes(k) for k in symptoms):
+    elif any(is_yes(k) for k in symptoms) or any(encounter.get("other_symptoms", {}).get(k, {}).get("value") == "yes" for k in encounter.get("other_symptoms", {})):
         tag = "other"
         confidence = "low"
+        # Collect quotes from symptoms
         for k in symptoms:
             if is_yes(k) and get_quote(k):
                 trigger_quotes.append(get_quote(k))
-                break
+        # Collect quotes from other_symptoms
+        for k, v in encounter.get("other_symptoms", {}).items():
+             if v.get("value") == "yes" and v.get("evidence_quote"):
+                 trigger_quotes.append(v.get("evidence_quote"))
+                 if len(trigger_quotes) >= 5: break
     else:
         tag = "unclear"
         confidence = "low"

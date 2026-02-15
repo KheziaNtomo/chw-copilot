@@ -12,6 +12,7 @@ This catches procedural hallucinations where the quote exists in the
 note but says the opposite (e.g., "no rash observed" cited for "rash: yes").
 """
 from typing import Dict, Any, List, Optional
+from .validate import locate_evidence
 
 
 # ── Verification prompt template ─────────────────────────────
@@ -144,6 +145,90 @@ def verify_extraction_claims(
         "claims_checked": len(claims),
         "flagged_claims": flagged_claims,
         "available": True,
+        "method": "self_consistency_check",
+    }
+
+
+def verify_claims_counterfactual(
+    encounter: Dict[str, Any],
+    note_text: str,
+    generate_fn=None,
+) -> Dict[str, Any]:
+    """Verify claims using Pythea-style counterfactual evidence scrubbing.
+
+    Methodology:
+    1. Identify the cited evidence quote for a claim.
+    2. Create a 'scrubbed' note where that evidence is masked/removed.
+    3. Ask the model if the symptom is still present in the scrubbed note.
+    4. If the model STILL claims 'Yes' without the evidence, it was likely
+       confabulating (ignoring evidence) or using priors.
+    5. If the model changes to 'No', the evidence was Causal (Verified).
+
+    Args:
+        encounter: Structured encounter dict
+        note_text: Original note text
+        generate_fn: Model generation function
+
+    Returns:
+        Verification result dict
+    """
+    claims = _build_claims(encounter)
+    if not claims:
+        return {"flagged": False, "claims_checked": 0, "flagged_claims": [], "available": True}
+
+    if generate_fn is None:
+        return {"flagged": False, "claims_checked": 0, "flagged_claims": [], "available": False, "note": "No model"}
+
+    flagged_claims = []
+
+    for c in claims:
+        evidence = c["evidence"].strip()
+        # Locate evidence in text (fuzzy match if needed)
+        matched_text, score = locate_evidence(evidence, note_text)
+        
+        if not matched_text:
+            # Evidence not found in text — this is a grounding error, technically caught by Agent 2
+            # But let's flag it here too
+            flagged_claims.append({
+                "claim": c["claim"],
+                "symptom": c["symptom"],
+                "evidence": c["evidence"],
+                "reason": "Evidence quote not found in original text (Grounding Error)",
+            })
+            continue
+
+        # Create counterfactual note using the ACTUAL text found
+        scrubbed_note = note_text.replace(matched_text, "[REDACTED]")
+
+        prompt = f"""COUNTERFACTUAL VERIFICATION TASK
+Original Note (Scrubbed): "{scrubbed_note}"
+Question: Based ONLY on the note above, does the patient have {c['symptom'].replace('_', ' ')}?
+
+Respond with ONLY a JSON object:
+{{"present": true/false, "reason": "brief explanation"}}"""
+
+        try:
+            from src.models import parse_json_response
+            raw = generate_fn(prompt, max_tokens=100)
+            result = parse_json_response(raw)
+
+            if result and result.get("present") is True:
+                # Model still sees symptom despite evidence removal -> Confabulation
+                flagged_claims.append({
+                    "claim": c["claim"],
+                    "symptom": c["symptom"],
+                    "evidence": c["evidence"],
+                    "reason": "Counterfactual Failure: Model still extracted symptom after evidence was removed (Non-Causal Evidence).",
+                })
+        except Exception:
+            continue
+
+    return {
+        "flagged": len(flagged_claims) > 0,
+        "claims_checked": len(claims),
+        "flagged_claims": flagged_claims,
+        "available": True,
+        "method": "pythea_counterfactual_scrubbing",
     }
 
 

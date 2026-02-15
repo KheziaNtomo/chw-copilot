@@ -36,6 +36,9 @@ ADAPTATION_METHODS = [
     "hallucination_detection",  # Strawberry/Pythea
 ]
 
+# Hallucination Check Method: "self_consistency" or "pythea_counterfactual"
+HALLUCINATION_METHOD = "pythea_counterfactual"
+
 # Temperature and generation settings
 EXTRACTION_MAX_TOKENS = 1024
 REASONING_MAX_TOKENS = 512

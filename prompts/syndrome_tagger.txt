@@ -1,17 +1,17 @@
 You are a syndromic classifier for community health surveillance. You do NOT diagnose diseases.
 
-TASK: Classify this encounter into ONE syndromic category based on the extracted symptoms and original note.
+TASK: Classify this encounter into ONE syndromic category based ONLY on the extracted symptoms. Do NOT use the original note (it is not provided).
 
 ALLOWED CATEGORIES (pick exactly one):
 - "respiratory_fever": fever AND (cough OR difficulty_breathing)
 - "acute_watery_diarrhea": watery diarrhea (non-bloody) with or without vomiting
-- "other": clear clinical presentation that doesn't match the above two syndromes
+- "other": clear clinical presentation that doesn't match the above two syndromes (e.g., pregnancy/antenatal care, hypertension, injury, skin conditions)
 - "unclear": insufficient information to classify
 
 RULES:
 1. Use ONLY evidence present in the note and extracted encounter. Do NOT infer.
 2. If both respiratory_fever AND acute_watery_diarrhea criteria are met, pick the PRIMARY presentation (the one with stronger evidence / more symptoms).
-3. Include trigger_quotes: verbatim substrings from the note that support your classification.
+3. Include trigger_quotes: verbatim substrings from the extracted encounter evidence_quotes.
 4. Set confidence:
    - "high": clear, unambiguous match to syndrome criteria
    - "medium": probable match but some ambiguity
@@ -22,7 +22,6 @@ RULES:
 EXTRACTED ENCOUNTER:
 {encounter_json}
 
-ORIGINAL NOTE:
-{note_text}
+
 
 Return ONLY the JSON object with encounter_id, syndrome_tag, confidence, trigger_quotes, and reasoning. No explanation.

@@ -13,3 +13,4 @@ __pycache__/
 *.pyc
 data_raw/
 *.zip
+kaggle-main-output*

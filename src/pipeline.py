@@ -118,47 +118,52 @@ def process_encounter(
     pipeline_start = time.time()
     agent_trace = []
 
-    # ── Agent 1: Extract structured encounter ────────────────
-    t0 = time.time()
-    fallback_used = False
-    if extractor == "medgemma":
-        from .extraction import extract_with_medgemma
-        encounter = extract_with_medgemma(note_text, encounter_id, location_id, week_id)
-    else:
-        from .extraction import stub_extract_full
-        encounter = stub_extract_full(note_text, encounter_id, location_id, week_id)
-        fallback_used = True
-
-    agent_trace.append({
-        "agent": "extract",
-        "name": "Encounter Extractor",
-        "duration_s": round(time.time() - t0, 3),
-        "fallback_used": fallback_used,
-        "output_summary": f"Extracted encounter with {_count_yes_symptoms(encounter)} positive symptoms",
-    })
-
-    # ── Agent 2: Enforce evidence grounding ──────────────────
-    t0 = time.time()
-    encounter, downgrades = enforce_evidence(encounter, note_text)
-
-    agent_trace.append({
-        "agent": "evidence_enforce",
-        "name": "Evidence Grounder",
-        "duration_s": round(time.time() - t0, 3),
-        "fallback_used": False,
-        "output_summary": f"{len(downgrades)} claims downgraded for missing/invalid evidence",
-    })
-
-    # ── Agent 3: Self-consistency hallucination detection ─────
-    hallucination_result = None
-    if run_hallucination_check:
+    # ── Agent Loop: Extract -> Verify -> Self-Correct ────────
+    max_retries = 1
+    attempt = 0
+    feedback = None
+    
+    while attempt <= max_retries:
+        # ── Agent 1: Extract structured encounter ────────────────
         t0 = time.time()
-        from .hallucination import verify_extraction_claims, verify_claims_offline
-
-        # Try model-based self-consistency first, fall back to deterministic
-        generate_fn = None
-        fallback_used = True
+        fallback_used = False
         if extractor == "medgemma":
+            from .extraction import extract_with_medgemma
+            encounter = extract_with_medgemma(note_text, encounter_id, location_id, week_id, feedback=feedback)
+        else:
+            from .extraction import stub_extract_full
+            encounter = stub_extract_full(note_text, encounter_id, location_id, week_id)
+            fallback_used = True
+
+        agent_trace.append({
+            "agent": "extract",
+            "name": f"Encounter Extractor (Attempt {attempt+1})",
+            "duration_s": round(time.time() - t0, 3),
+            "fallback_used": fallback_used,
+            "output_summary": f"Extracted encounter with {_count_yes_symptoms(encounter)} positive symptoms. Feedback used: {bool(feedback)}",
+        })
+
+        # ── Agent 2: Enforce evidence grounding ──────────────────
+        t0 = time.time()
+        encounter, downgrades = enforce_evidence(encounter, note_text)
+
+        agent_trace.append({
+            "agent": "evidence_enforce",
+            "name": "Evidence Grounder",
+            "duration_s": round(time.time() - t0, 3),
+            "fallback_used": False,
+            "output_summary": f"{len(downgrades)} claims downgraded for missing/invalid evidence",
+        })
+
+        # ── Agent 3: Self-consistency hallucination detection ─────
+        hallucination_result = None
+        if run_hallucination_check and extractor == "medgemma": # Only check/loop if using model
+            t0 = time.time()
+            from .hallucination import verify_extraction_claims, verify_claims_offline
+
+            # Try model-based self-consistency first, fall back to deterministic
+            generate_fn = None
+            fallback_used = True
             try:
                 from .models import generate_medgemma
                 generate_fn = generate_medgemma
@@ -166,23 +171,47 @@ def process_encounter(
             except Exception:
                 pass
 
-        if generate_fn:
-            hallucination_result = verify_extraction_claims(encounter, note_text, generate_fn=generate_fn)
-        else:
-            hallucination_result = verify_claims_offline(encounter, note_text)
-            fallback_used = True
+            if generate_fn:
+                if getattr(config, "HALLUCINATION_METHOD", "self_consistency") == "pythea_counterfactual":
+                    from .hallucination import verify_claims_counterfactual
+                    hallucination_result = verify_claims_counterfactual(encounter, note_text, generate_fn=generate_fn)
+                else:
+                    hallucination_result = verify_extraction_claims(encounter, note_text, generate_fn=generate_fn)
+            else:
+                hallucination_result = verify_claims_offline(encounter, note_text)
+                fallback_used = True
 
-        agent_trace.append({
-            "agent": "hallucination_check",
-            "name": "Hallucination Detector",
-            "duration_s": round(time.time() - t0, 3),
-            "fallback_used": fallback_used,
-            "output_summary": (
-                f"Checked {hallucination_result.get('claims_checked', 0)} claims, "
-                f"{len(hallucination_result.get('flagged_claims', []))} flagged"
-                f" ({hallucination_result.get('method', 'self-consistency')})"
-            ),
-        })
+            agent_trace.append({
+                "agent": "hallucination_check",
+                "name": f"Hallucination Detector (Attempt {attempt+1})",
+                "duration_s": round(time.time() - t0, 3),
+                "fallback_used": fallback_used,
+                "output_summary": (
+                    f"Checked {hallucination_result.get('claims_checked', 0)} claims, "
+                    f"{len(hallucination_result.get('flagged_claims', []))} flagged"
+                    f" ({hallucination_result.get('method', 'self-consistency')})"
+                ),
+            })
+            
+            # ── Self-Correction Decision ─────────────────────────
+            if hallucination_result.get("flagged") and attempt < max_retries:
+                # Construct feedback for next attempt
+                flagged_items = hallucination_result.get("flagged_claims", [])
+                feedback_lines = []
+                for item in flagged_items:
+                    feedback_lines.append(f"- Your claim '{item['claim']}' was NOT supported by evidence '{item['evidence']}'. Reason: {item['reason']}")
+                
+                feedback = "The following claims were flagged as hallucinations/incorrect. Please REMOVE or CORRECT them:\n" + "\n".join(feedback_lines)
+                
+                # Loop back
+                attempt += 1
+                continue
+            else:
+                # No hallucinations or max retries reached
+                break
+        else:
+            # No hallucination check requested or using stub
+            break
 
     # ── Agent 4: Tag syndrome ────────────────────────────────
     t0 = time.time()
