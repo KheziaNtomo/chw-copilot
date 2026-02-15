@@ -9,7 +9,12 @@ RULES:
 4. Priority: "high" for danger-sign-related gaps, "medium" for syndrome-relevant gaps, "low" for demographics/metadata.
 5. Questions must be simple, plain language a CHW can ask directly.
 6. Do NOT suggest diagnostic tests or referrals — only information-gathering questions.
-7. Consider ALL fields including: core symptoms, other_symptoms gaps, onset_days, severity, patient demographics, pregnancy_status, treatments already given, and referral status.
+7. Consider ALL clinically relevant fields.
+8. START WITH DEMOGRAPHIC CHECK: 
+   - If patient is MALE, CHILD (<10), or ELDERLY (>50), do NOT ask about pregnancy.
+   - If patient is > 2 years, do NOT ask about breastfeeding.
+   - If patient is < 5 years, prioritize danger signs (unable to drink, vomiting everything).
+9. Do not annoy the CHW with obvious questions if context implies they are irrelevant.
 
 PRIORITY ORDER:
 - High: fever status, dehydration signs, breathing difficulty, ability to eat/drink, pregnancy in women of reproductive age
