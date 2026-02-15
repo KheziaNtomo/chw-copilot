@@ -26,11 +26,6 @@ def _postprocess_extraction(raw: Dict[str, Any], note_text: str,
     for key in ["fever", "cough", "watery_diarrhea", "bloody_diarrhea",
                 "vomiting", "rash", "difficulty_breathing"]:
         claim = symptoms.get(key, {})
-        if not isinstance(claim, dict):
-            # Model hallucinated simple string (e.g. "yes") — treat as unknown or parse?
-            # For safety, defaulting to unknown if structure is wrong
-            claim = {}
-        
         val = str(claim.get("value", "unknown")).lower().strip()
         if val not in ("yes", "no"):
             val = "unknown"

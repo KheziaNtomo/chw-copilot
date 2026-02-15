@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Syndrome Tag",
+  "description": "Syndromic classification for a single encounter. Tags are limited to target syndromes plus other/unclear. Every tag must include trigger evidence. Trigger quotes must be verbatim substrings of note_text (enforced by validator, not schema).",
+  "type": "object",
+  "required": ["encounter_id", "syndrome_tag", "confidence", "trigger_quotes"],
+  "additionalProperties": false,
+  "properties": {
+    "encounter_id": { "type": "string" },
+    "syndrome_tag": {
+      "type": "string",
+      "enum": ["respiratory_fever", "acute_watery_diarrhea", "other", "unclear"],
+      "description": "Extensible: add new syndrome values here as needed"
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["high", "medium", "low"],
+      "description": "Model confidence in this classification"
+    },
+    "trigger_quotes": {
+      "type": "array",
+      "description": "Verbatim substrings from the note that triggered this classification. Must be actual substrings of note_text (enforced by validator/tests).",
+      "minItems": 1,
+      "maxItems": 5,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "reasoning": {
+      "type": "string",
+      "description": "Brief explanation of why this syndrome was selected"
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "title": "Strawberry Hallucination Detection — Failure Mode",
+  "description": "MedGemma extracts 'rash: yes' with evidence_quote 'no rash observed'. The quote IS in the note (passes evidence grounding), but Strawberry detects the quote CONTRADICTS the claim.",
+  "note_text": "Child 5yo M fever 2 days cough runny nose no rash observed no diarrhea drinking well referred health center",
+  "encounter": {
+    "encounter_id": "fail_001",
+    "symptoms": {
+      "fever": {"value": "yes", "evidence_quote": "fever 2 days"},
+      "cough": {"value": "yes", "evidence_quote": "cough"},
+      "rash": {"value": "yes", "evidence_quote": "no rash observed"}
+    }
+  },
+  "evidence_grounding_result": {
+    "pass": true,
+    "note": "All evidence_quotes are substrings of the note — grounding check passes"
+  },
+  "strawberry_result": {
+    "flagged": true,
+    "claims_checked": 3,
+    "flagged_claims": [
+      {
+        "claim": "Patient has rash [S2]",
+        "budget_gap": 9.7,
+        "reason": "Evidence 'no rash observed' contradicts 'rash: yes' — the quote negates the claim"
+      }
+    ],
+    "budget_gaps": {
+      "Patient has fever [S0]": -2.1,
+      "Patient has cough [S1]": -1.5,
+      "Patient has rash [S2]": 9.7
+    }
+  },
+  "lesson": "Evidence grounding (substring check) catches MISSING evidence. Strawberry catches CONTRADICTORY evidence — a more subtle hallucination mode where the model cites a quote that actually says the opposite of the claim."
+}

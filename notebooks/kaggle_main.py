@@ -64,36 +64,15 @@ if torch.cuda.is_available():
 # ## 1. Load Prompts and Schemas
 
 # %%
-# Load prompt templates
-def load_prompt(name):
-    path = ROOT / "prompts" / f"{name}.txt"
-    return path.read_text(encoding="utf-8")
-
-extraction_prompt = load_prompt("specialist_extraction")
-syndrome_prompt = load_prompt("syndrome_tagger")
-checklist_prompt = load_prompt("checklist_agent")
-sitrep_prompt = load_prompt("monitoring_sitrep")
-
-print(f"Extraction prompt: {len(extraction_prompt)} chars")
-print(f"Syndrome prompt: {len(syndrome_prompt)} chars")
-print(f"Checklist prompt: {len(checklist_prompt)} chars")
-print(f"SITREP prompt: {len(sitrep_prompt)} chars")
-print("All prompts loaded ✅")
+# Note: Prompts are now loaded internally by src modules
+print("Prompts managed by src.pipeline ✅")
 
 # %%
 # Load schemas for validation
 import jsonschema
 
-def load_schema(name):
-    path = ROOT / "schemas" / f"{name}.schema.json"
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
-
-encounter_schema = load_schema("encounter")
-syndrome_schema = load_schema("syndrome")
-checklist_schema = load_schema("checklist")
-sitrep_schema = load_schema("sitrep")
-print("All schemas loaded ✅")
+# Schemas are loaded internally by src.validate
+print("Schemas managed by src.validate ✅")
 
 # %% [markdown]
 # ## 2. Load MedGemma 1.5
@@ -153,311 +132,52 @@ print(f"MedGemma 1.5 loaded on {device} in {time.time()-t0:.1f}s ✅")
 # ## 3. Helper Functions
 
 # %%
-import re
-
-def parse_json_response(text):
-    """Extract JSON from model response, handling code fences and extra text."""
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        pass
-    m = re.search(r'```(?:json)?\s*\n(.*?)\n```', text, re.DOTALL)
-    if m:
-        try:
-            return json.loads(m.group(1))
-        except json.JSONDecodeError:
-            pass
-    m = re.search(r'\{.*\}', text, re.DOTALL)
-    if m:
-        try:
-            return json.loads(m.group(0))
-        except json.JSONDecodeError:
-            pass
-    return None
-
-
-def run_medgemma(prompt, max_new_tokens=512):
-    """Run MedGemma 1.5 with chat template (AutoProcessor API)."""
-    messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
-    input_text = mg_processor.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True
-    )
-    inputs = mg_processor(text=input_text, return_tensors="pt").to(mg_model.device)
-    input_len = inputs["input_ids"].shape[1]
-    with torch.inference_mode():
-        outputs = mg_model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            do_sample=False,
-        )
-    return mg_processor.decode(outputs[0][input_len:], skip_special_tokens=True).strip()
-
-
-def enforce_evidence(encounter, note_text):
-    """Downgrade 'yes' claims without valid evidence quotes."""
-    note = (note_text or "").lower()
-    downgrades = []
-    for k, v in list(encounter.get("symptoms", {}).items()):
-        if v.get("value") == "yes":
-            q = v.get("evidence_quote")
-            if not q or q.lower() not in note:
-                encounter["symptoms"][k] = {"value": "unknown", "evidence_quote": None}
-                downgrades.append(f"symptoms.{k}")
-    other_symp = encounter.get("other_symptoms", {})
-    if isinstance(other_symp, dict):
-        for k, v in list(other_symp.items()):
-            if isinstance(v, dict) and v.get("value") == "yes":
-                q = v.get("evidence_quote")
-                if not q or q.lower() not in note:
-                    encounter["other_symptoms"][k] = {"value": "unknown", "evidence_quote": None}
-                    downgrades.append(f"other_symptoms.{k}")
-    valid_flags = []
-    for flag in encounter.get("red_flags", []):
-        if isinstance(flag, str):
-            # Model returned plain string — drop it (no evidence)
-            downgrades.append(f"red_flag:{flag}")
-            continue
-        q = flag.get("evidence_quote", "")
-        if q and q.lower() in note:
-            valid_flags.append(flag)
-        else:
-            downgrades.append(f"red_flag:{flag.get('flag','?')}")
-    encounter["red_flags"] = valid_flags
-    return encounter, downgrades
-
-# %% [markdown]
-# ## 4. Quick Smoke Test (1 Note)
-
 # %%
-test_note = "Child 3yo male fever 3 days cough bad difficulty breathing rash on chest no diarrhea mother says not eating gave ORS referred health center"
+# Ensure src is in path
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-print("=== MedGemma Extraction ===")
-t0 = time.time()
-extract_prompt = extraction_prompt.replace("{note_text}", test_note)
-raw_extract = run_medgemma(extract_prompt, max_new_tokens=1024)
-print(f"MedGemma extraction time: {time.time()-t0:.1f}s")
-parsed_extract = parse_json_response(raw_extract)
-if parsed_extract:
-    print(json.dumps(parsed_extract, indent=2)[:800])
-else:
-    print("⚠️ Failed to parse extraction output:")
-    print(raw_extract[:500])
+from src import pipeline, config
 
-# %%
-print("=== MedGemma Syndrome Tagging ===")
-tag_prompt = syndrome_prompt.replace("{encounter_json}", json.dumps(parsed_extract or {}, indent=2))
-tag_prompt = tag_prompt.replace("{note_text}", test_note)
-t0 = time.time()
-raw_tag = run_medgemma(tag_prompt)
-print(f"MedGemma time: {time.time()-t0:.1f}s")
-parsed_tag = parse_json_response(raw_tag)
-if parsed_tag:
-    print(json.dumps(parsed_tag, indent=2)[:500])
-else:
-    print("⚠️ Failed to parse:")
-    print(raw_tag[:500])
+# Phase 1: Full Agentic Run (Showcase)
+# Run 3 notes with ALL agents enabled (Extraction + Evidence + Hallucination + Tag + Checklist + Validate)
+print("=== Phase 1: Full Agentic Pipeline Showcase (3 notes) ===")
+print("Running with: Hallucination Check, Model Tagger, Model Checklist")
 
-# %%
-print("=== MedGemma Checklist ===")
-cl_prompt = checklist_prompt.replace("{encounter_json}", json.dumps(parsed_extract or {}, indent=2))
-cl_prompt = cl_prompt.replace("{note_text}", test_note)
-t0 = time.time()
-raw_cl = run_medgemma(cl_prompt)
-print(f"MedGemma time: {time.time()-t0:.1f}s")
-parsed_cl = parse_json_response(raw_cl)
-if parsed_cl:
-    print(json.dumps(parsed_cl, indent=2)[:500])
-else:
-    print("⚠️ Failed to parse:")
-    print(raw_cl[:500])
+demo_subset = demo_notes[:3]
+results_full = pipeline.process_batch(
+    demo_subset,
+    extractor="medgemma",
+    use_model_tagger=True,
+    use_model_checklist=True,
+    run_hallucination_check=True,
+    progress_callback=lambda i, n: print(f"  Full Agentic Note {i+1}/{n}...")
+)
 
-# %% [markdown]
-# ## 5. Full Pipeline Function
+# Print trace for first note
+print("\nAgent Trace for Note 1:")
+for step in results_full[0]["agent_trace"]:
+    print(f"  [{step['agent']}] {step['name']}: {step['duration_s']}s — {step['output_summary']}")
 
-# %%
-def process_note(note_text, encounter_id, location_id, week_id):
-    """Full pipeline: extract → enforce evidence → tag → checklist."""
-    result = {"encounter_id": encounter_id, "errors": []}
-    t0 = time.time()
+# Phase 2: Fast Batch Run (Performance)
+# Run remaining notes with LIGHT pipeline (Extraction + Deterministic Fallbacks)
+# This reduces LLM calls from ~5 per note to 1 per note
+remaining_notes = demo_notes[3:]
+print(f"\n=== Phase 2: High-Throughput Batch ({len(remaining_notes)} notes) ===")
+print("Running with: Deterministic Tagger, Deterministic Checklist, No Hallucination Check")
 
-    # Step 1: Extract with MedGemma
-    try:
-        ext_prompt = extraction_prompt.replace("{note_text}", note_text)
-        raw = run_medgemma(ext_prompt, max_new_tokens=1024)
-        parsed = parse_json_response(raw)
-        if parsed is None:
-            result["errors"].append("extraction_parse_fail")
-            parsed = {}
-    except Exception as e:
-        result["errors"].append(f"extraction_error: {e}")
-        parsed = {}
+results_fast = pipeline.process_batch(
+    remaining_notes,
+    extractor="medgemma",
+    use_model_tagger=False,     # Optimization: Use deterministic fallback
+    use_model_checklist=False,  # Optimization: Use deterministic fallback
+    run_hallucination_check=False, # Optimization: Skip expensive verification
+    progress_callback=lambda i, n: print(f"  Fast Note {i+1}/{n}...", end="\r")
+)
 
-    # Normalize symptoms
-    symptoms = parsed.get("symptoms", {})
-    for key in ["fever","cough","watery_diarrhea","bloody_diarrhea","vomiting","rash","difficulty_breathing"]:
-        claim = symptoms.get(key, {})
-        if not isinstance(claim, dict):
-            claim = {}
-        val = str(claim.get("value", "unknown")).lower().strip()
-        if val not in ("yes", "no"):
-            val = "unknown"
-        quote = claim.get("evidence_quote")
-        if val != "yes":
-            quote = None
-        elif not (quote and isinstance(quote, str) and quote.strip()):
-            quote = None
-            val = "unknown"
-        symptoms[key] = {"value": val, "evidence_quote": quote, "duration": claim.get("duration") if val == "yes" else None}
-
-    # Normalize other_symptoms
-    other_symp = {}
-    raw_other = parsed.get("other_symptoms", {})
-    if isinstance(raw_other, dict):
-        for k, v in raw_other.items():
-            val = str(v.get("value","unknown")).lower().strip()
-            if val not in ("yes","no"): val = "unknown"
-            q = v.get("evidence_quote")
-            if val != "yes": q = None; dur = None
-            elif not (q and isinstance(q, str) and q.strip()): q = None; val = "unknown"; dur = None
-            else: dur = v.get("duration")
-            other_symp[k] = {"value": val, "evidence_quote": q, "duration": dur}
-
-    # Normalize patient
-    pat = parsed.get("patient", {})
-    if not isinstance(pat, dict): pat = {}
-    age_group = str(pat.get("age_group","unknown")).lower().strip()
-    if age_group not in ("infant","child","adolescent","adult","elderly"): age_group = "unknown"
-    sex = str(pat.get("sex","unknown")).lower().strip()
-    if sex not in ("male","female"): sex = "unknown"
-    age_years = pat.get("age_years")
-    try: age_years = int(age_years) if age_years else None
-    except: age_years = None
-
-    patient = {"age_group": age_group, "sex": sex}
-    if age_years is not None: patient["age_years"] = age_years
-
-    # Normalize onset, severity
-    onset = parsed.get("onset_days")
-    try: onset = int(onset) if onset else None
-    except: onset = None
-    severity = str(parsed.get("severity","unknown")).lower().strip()
-    if severity not in ("mild","moderate","severe"): severity = "unknown"
-
-    # Build encounter
-    encounter = {
-        "encounter_id": encounter_id,
-        "location_id": location_id,
-        "week_id": week_id,
-        "note_text": note_text,
-        "chw_id": str(parsed.get("chw_id", "unknown")),
-        "visit_date": parsed.get("visit_date"),
-        "visit_datetime": parsed.get("visit_datetime"),
-        "encounter_sequence": parsed.get("encounter_sequence"),
-        "area_id": str(parsed.get("area_id", "unknown")),
-        "household_id": str(parsed.get("household_id", "unknown")),
-        "gps": parsed.get("gps"),
-        "patient": patient,
-        "symptoms": symptoms,
-        "other_symptoms": other_symp,
-        "onset_days": onset,
-        "severity": severity,
-        "red_flags": parsed.get("red_flags", []),
-        "treatments_given": [str(t) for t in parsed.get("treatments_given",[]) if t],
-        "referral": None,
-        "follow_up": None,
-    }
-
-    # Enforce evidence
-    encounter, downgrades = enforce_evidence(encounter, note_text)
-    result["evidence_downgrades"] = downgrades
-
-    # Step 2: Syndrome tagging with MedGemma
-    try:
-        tag_p = syndrome_prompt.replace("{encounter_json}", json.dumps({
-            "symptoms": encounter["symptoms"],
-            "other_symptoms": encounter.get("other_symptoms", {}),
-            "red_flags": encounter.get("red_flags", []),
-            "severity": encounter.get("severity"),
-            "onset_days": encounter.get("onset_days"),
-        }, indent=2))
-        tag_p = tag_p.replace("{note_text}", note_text)
-        raw_tag = run_medgemma(tag_p)
-        syndrome = parse_json_response(raw_tag) or {}
-    except Exception as e:
-        result["errors"].append(f"tagger_error: {e}")
-        syndrome = {}
-
-    tag = str(syndrome.get("syndrome_tag","unclear")).lower().strip()
-    if tag not in ("respiratory_fever","acute_watery_diarrhea","other","unclear"):
-        tag = "unclear"
-    syndrome_result = {
-        "encounter_id": encounter_id,
-        "syndrome_tag": tag,
-        "confidence": str(syndrome.get("confidence","low")).lower().strip(),
-        "trigger_quotes": [str(q) for q in syndrome.get("trigger_quotes",[]) if q][:5],
-        "reasoning": str(syndrome.get("reasoning",""))[:300],
-    }
-    if not syndrome_result["trigger_quotes"]:
-        syndrome_result["trigger_quotes"] = ["insufficient data"]
-
-    # Step 3: Checklist with MedGemma
-    try:
-        cl_p = checklist_prompt.replace("{encounter_json}", json.dumps(encounter, indent=2, default=str))
-        cl_p = cl_p.replace("{note_text}", note_text)
-        raw_cl = run_medgemma(cl_p)
-        checklist = parse_json_response(raw_cl) or {"questions": []}
-    except Exception as e:
-        result["errors"].append(f"checklist_error: {e}")
-        checklist = {"questions": []}
-
-    checklist_result = {
-        "encounter_id": encounter_id,
-        "questions": checklist.get("questions", [])[:5],
-    }
-
-    elapsed = time.time() - t0
-    result["encounter"] = encounter
-    result["syndrome_tag"] = syndrome_result
-    result["checklist"] = checklist_result
-    result["processing_time_s"] = round(elapsed, 2)
-
-    return result
-
-print("Pipeline function defined ✅")
-
-# %% [markdown]
-# ## 6. Run on Gold Notes
-
-# %%
-# Load gold notes
-gold_path = ROOT / "data_synth" / "gold_encounters_merged.jsonl"
-if not gold_path.exists():
-    gold_path = ROOT / "data_synth" / "gold_encounters.jsonl"
-
-gold_notes = [json.loads(l) for l in open(gold_path, encoding="utf-8")]
-print(f"Loaded {len(gold_notes)} gold notes")
-
-# For demo/time, run on a subset
-N_DEMO = 20  # Change to len(gold_notes) for full run
-demo_notes = gold_notes[:N_DEMO]
-print(f"Running pipeline on {N_DEMO} notes...")
-
-# %%
-results = []
-for i, note in enumerate(demo_notes):
-    print(f"Processing {i+1}/{N_DEMO}: {note['encounter_id']}...", end=" ")
-    r = process_note(
-        note_text=note["note_text"],
-        encounter_id=note["encounter_id"],
-        location_id=note.get("location_id", "unknown"),
-        week_id=note.get("week_id", 0),
-    )
-    print(f"→ {r['syndrome_tag']['syndrome_tag']} ({r['processing_time_s']}s)")
-    if r["errors"]:
-        print(f"  ⚠️ Errors: {r['errors']}")
-    results.append(r)
-
-print(f"\n✅ Processed {len(results)} notes")
+# Combine results
+results = results_full + results_fast
+print(f"\n✅ Processed {len(results)} notes total")
 avg_time = sum(r["processing_time_s"] for r in results) / len(results)
 print(f"Average time per note: {avg_time:.1f}s")
 
@@ -606,15 +326,14 @@ if sim_path.exists() and not anomalies.empty:
 
     print(f"Generating SITREP for week {outbreak_week}...")
     t0 = time.time()
-    raw_sitrep = run_medgemma(sitrep_p, max_new_tokens=1024)
+    
+    # Use src.sitrep 
+    from src.sitrep import generate_sitrep_medgemma
+    sitrep = generate_sitrep_medgemma(week_anomalies, weekly_counts, outbreak_week)
     print(f"SITREP generated in {time.time()-t0:.1f}s")
 
-    sitrep = parse_json_response(raw_sitrep)
     if sitrep:
         print(json.dumps(sitrep, indent=2))
-    else:
-        print("Raw output:")
-        print(raw_sitrep[:800])
 
 # %% [markdown]
 # ## 9. Save Results

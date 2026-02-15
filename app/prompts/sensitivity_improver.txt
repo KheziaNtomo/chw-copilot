@@ -1,0 +1,16 @@
+You are a prompt optimization agent. Your job is to improve the SENSITIVITY (recall) of a medical extraction/classification prompt.
+
+CONTEXT: The current prompt is being used to extract symptoms and classify syndromes from CHW notes. It is MISSING some true positives (false negatives).
+
+FALSE NEGATIVE EXAMPLES (cases the prompt missed):
+{false_negatives}
+
+CURRENT PROMPT:
+{current_prompt}
+
+TASK: Suggest specific, targeted edits to the prompt that would help catch these missed cases WITHOUT increasing false positives. Focus on:
+1. Adding synonyms or colloquial terms the CHW might use (e.g., "hot body" = fever, "running stomach" = diarrhea)
+2. Expanding pattern matching for indirect mentions
+3. Adjusting threshold language (e.g., "if there is any suggestion of X, mark as yes")
+
+Return your suggestions as a numbered list of specific text changes to the prompt. Be precise — quote the exact text to change and the replacement.

@@ -117,6 +117,17 @@ python -m pytest tests/ -v                      # Run tests (30 tests)
 - **Human in the loop**: All outputs labelled as decision-support, not diagnosis
 - **Deterministic fallbacks**: Pipeline functions without GPU via rule-based alternatives
 
+## Deployment Strategy (Prototype vs. Production)
+
+| Feature | **Competition Prototype** (Current) | **Real-World Pilot** (Vision) |
+| :--- | :--- | :--- |
+| **Interface** | Streamlit Web App (Browser) | Native Android App (Kotlin/Jetpack Compose) |
+| **Compute** | Laptop / Kaggle T4 GPU | On-Device NPU/GPU via **MediaPipe LLM Inference** |
+| **Model** | MedGemma 1.5 (4B) via Transformers | MedGemma 1.5 (2B/4B) quantized to int4 |
+| **Connectivity** | Localhost / Cloud | **Zero Data Cost** (Fully Offline) |
+| **Data Sync** | CSV / JSON Export | Opportunistic background sync (WorkManager) |
+| **Impact** | Demonstrates logical flow & safety | Enables deployment in remote, disconnected areas |
+
 ## Success Metrics
 
 | Layer | Metric | Target |
