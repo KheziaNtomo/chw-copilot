@@ -37,7 +37,7 @@ def _postprocess_extraction(raw: Dict[str, Any], note_text: str,
         else:
             quote = None
             val = "unknown"  # can't claim yes without evidence
-        symptoms[key] = {"value": val, "evidence_quote": quote}
+        symptoms[key] = {"value": val, "evidence_quote": quote, "duration": claim.get("duration") if val == "yes" else None}
 
     # Normalize other_symptoms
     other_symptoms = {}
@@ -54,7 +54,7 @@ def _postprocess_extraction(raw: Dict[str, Any], note_text: str,
             else:
                 quote = None
                 val = "unknown"
-            other_symptoms[key] = {"value": val, "evidence_quote": quote}
+            other_symptoms[key] = {"value": val, "evidence_quote": quote, "duration": v.get("duration") if val == "yes" else None}
 
     # Normalize patient
     patient_raw = raw.get("patient", {})
@@ -201,7 +201,7 @@ def stub_extract_full(note_text: str, encounter_id: str = "unknown",
         if key in basic.get("symptoms", {}):
             symptoms[key] = basic["symptoms"][key]
         else:
-            symptoms[key] = {"value": "unknown", "evidence_quote": None}
+            symptoms[key] = {"value": "unknown", "evidence_quote": None, "duration": None}
 
     return {
         "encounter_id": encounter_id,

@@ -1,0 +1,236 @@
+/* CHW Copilot — Premium Dark Medical Theme */
+
+/* ── Root Variables ─────────────────────────────────────────── */
+:root {
+    --bg-primary: #0a0e1a;
+    --bg-secondary: #111827;
+    --bg-card: rgba(17, 24, 39, 0.8);
+    --bg-glass: rgba(30, 41, 59, 0.6);
+
+    --accent-teal: #14b8a6;
+    --accent-teal-dim: rgba(20, 184, 166, 0.15);
+    --accent-blue: #3b82f6;
+    --accent-blue-dim: rgba(59, 130, 246, 0.15);
+
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+
+    --success: #22c55e;
+    --success-bg: rgba(34, 197, 94, 0.12);
+    --warning: #f59e0b;
+    --warning-bg: rgba(245, 158, 11, 0.12);
+    --danger: #ef4444;
+    --danger-bg: rgba(239, 68, 68, 0.12);
+
+    --border: rgba(148, 163, 184, 0.1);
+    --radius: 12px;
+    --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Global ────────────────────────────────────────────────── */
+.stApp {
+    background: linear-gradient(135deg, var(--bg-primary) 0%, #0f172a 50%, #1a1a2e 100%);
+}
+
+/* ── Sidebar ───────────────────────────────────────────────── */
+[data-testid="stSidebar"] {
+    background: var(--bg-secondary) !important;
+    border-right: 1px solid var(--border);
+}
+
+[data-testid="stSidebar"] .stMarkdown h1,
+[data-testid="stSidebar"] .stMarkdown h2,
+[data-testid="stSidebar"] .stMarkdown h3 {
+    color: var(--accent-teal) !important;
+}
+
+/* ── Cards ─────────────────────────────────────────────────── */
+.glass-card {
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.glass-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Evidence Highlights ───────────────────────────────────── */
+.evidence-grounded {
+    background: var(--success-bg);
+    border-left: 3px solid var(--success);
+    padding: 0.5rem 1rem;
+    border-radius: 0 8px 8px 0;
+    margin: 0.25rem 0;
+    font-family: 'Inter', sans-serif;
+}
+
+.evidence-downgraded {
+    background: var(--danger-bg);
+    border-left: 3px solid var(--danger);
+    padding: 0.5rem 1rem;
+    border-radius: 0 8px 8px 0;
+    margin: 0.25rem 0;
+    font-family: 'Inter', sans-serif;
+}
+
+.evidence-flagged {
+    background: var(--warning-bg);
+    border-left: 3px solid var(--warning);
+    padding: 0.5rem 1rem;
+    border-radius: 0 8px 8px 0;
+    margin: 0.25rem 0;
+}
+
+.evidence-quote {
+    color: var(--accent-teal);
+    font-style: italic;
+    font-weight: 500;
+}
+
+/* ── Badges ────────────────────────────────────────────────── */
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.badge-success { background: var(--success-bg); color: var(--success); border: 1px solid var(--success); }
+.badge-warning { background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning); }
+.badge-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger); }
+.badge-info { background: var(--accent-blue-dim); color: var(--accent-blue); border: 1px solid var(--accent-blue); }
+.badge-teal { background: var(--accent-teal-dim); color: var(--accent-teal); border: 1px solid var(--accent-teal); }
+
+/* ── Pipeline Trace ────────────────────────────────────────── */
+.trace-step {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: var(--bg-card);
+    border-radius: 8px;
+    margin: 0.5rem 0;
+    border-left: 3px solid var(--accent-teal);
+    transition: background 0.2s;
+}
+
+.trace-step:hover {
+    background: var(--bg-glass);
+}
+
+.trace-step.fallback {
+    border-left-color: var(--warning);
+}
+
+.trace-step.flagged {
+    border-left-color: var(--danger);
+}
+
+/* ── Anomaly Cards ─────────────────────────────────────────── */
+.anomaly-card {
+    background: var(--danger-bg);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.anomaly-card .metric {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--danger);
+}
+
+/* ── Priority Colors ───────────────────────────────────────── */
+.priority-high { color: var(--danger); }
+.priority-medium { color: var(--warning); }
+.priority-low { color: var(--accent-blue); }
+
+/* ── Metric Cards ──────────────────────────────────────────── */
+.metric-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    text-align: center;
+}
+
+.metric-card .value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent-teal), var(--accent-blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.metric-card .label {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.25rem;
+}
+
+/* ── Highlighted Note Text ─────────────────────────────────── */
+.note-text mark {
+    background: var(--accent-teal-dim);
+    color: var(--accent-teal);
+    padding: 0.1em 0.3em;
+    border-radius: 3px;
+    font-weight: 500;
+}
+
+.note-text mark.flagged {
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+
+/* ── Streamlit Overrides ───────────────────────────────────── */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.stTabs [data-baseweb="tab"] {
+    color: var(--text-secondary) !important;
+    border-bottom: 2px solid transparent;
+    padding: 0.75rem 1.5rem;
+    transition: all 0.2s;
+}
+
+.stTabs [aria-selected="true"] {
+    color: var(--accent-teal) !important;
+    border-bottom-color: var(--accent-teal) !important;
+}
+
+.stExpander {
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    background: var(--bg-card) !important;
+}
+
+/* ── Animations ────────────────────────────────────────────── */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.glass-card, .trace-step, .anomaly-card {
+    animation: fadeIn 0.4s ease-out;
+}
+
+/* ── Responsive ────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .glass-card { padding: 1rem; }
+    .metric-card .value { font-size: 1.8rem; }
+}

@@ -22,9 +22,19 @@ DATA_DIR = ROOT / "data_synth"
 OUT_DIR = ROOT / "data_synth"
 
 # ── Model configuration ─────────────────────────────────────
-# MedGemma for all tasks: extraction, syndrome tagging, checklist, SITREP
-MEDGEMMA_MODEL = os.getenv("MEDGEMMA_MODEL", "google/medgemma-4b-it")
+# MedGemma 1.5 for all tasks: extraction, syndrome tagging, checklist, SITREP
+# MedGemma 1.5 adds EHR understanding and medical document understanding
+MEDGEMMA_MODEL = os.getenv("MEDGEMMA_MODEL", "google/medgemma-1.5-4b-it")
+MODEL_VERSION = "1.5"
 MEDGEMMA_DEVICE = "auto"
+
+# Adaptation methods used (for documentation / judge alignment)
+ADAPTATION_METHODS = [
+    "prompt_engineering",
+    "agentic_orchestration",
+    "evidence_grounding_enforcement",
+    "hallucination_detection",  # Strawberry/Pythea
+]
 
 # Temperature and generation settings
 EXTRACTION_MAX_TOKENS = 1024

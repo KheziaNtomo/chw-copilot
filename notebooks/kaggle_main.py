@@ -7,15 +7,19 @@
 # ---
 
 # %% [markdown]
-# # CHW Copilot — End-to-End Pipeline on Kaggle
+# # CHW Copilot — 6-Agent Agentic Pipeline on Kaggle
 #
-# **Competition:** Google AI Assistants for Data Tasks with Gemma
+# **Competition:** Google AI Assistants for Data Tasks with Gemma — Agentic Workflow Prize
 #
-# This notebook runs the full CHW Copilot pipeline on Kaggle GPU using **MedGemma only**:
-# 1. Load MedGemma-4b-it for extraction, syndrome tagging, checklist, and SITREP
-# 2. Extract structured encounters from typed CHW notes
-# 3. Evaluate extraction quality
-# 4. Run surveillance pipeline
+# This notebook runs the full CHW Copilot **agentic pipeline** on Kaggle GPU:
+# 1. Load **MedGemma 1.5** (`google/medgemma-1.5-4b-it`) for extraction, tagging, checklist, SITREP
+# 2. Run 6-agent pipeline: Extract → Ground → Verify → Tag → Checklist → Validate
+# 3. Evaluate extraction quality + evidence grounding
+# 4. Run surveillance pipeline with anomaly detection
+#
+# **Agents:** Encounter Extractor (LLM) → Evidence Grounder (deterministic) →
+# Hallucination Detector (Strawberry) → Syndrome Tagger (LLM) →
+# Checklist Generator (LLM) → Schema Validator (deterministic)
 #
 # **Runtime:** Kaggle T4 GPU (16GB VRAM)
 #
@@ -92,20 +96,22 @@ sitrep_schema = load_schema("sitrep")
 print("All schemas loaded ✅")
 
 # %% [markdown]
-# ## 2. Load MedGemma
+# ## 2. Load MedGemma 1.5
 #
-# **MedGemma-4b-it** (Google) — handles everything:
-# - Structured extraction from typed CHW notes
-# - Syndrome tagging
-# - Checklist generation
-# - SITREP generation
+# **MedGemma 1.5 4b-it** (Google HAI-DEF) — handles all LLM-based agents:
+# - **Agent 1:** Structured extraction from typed CHW notes
+# - **Agent 4:** Syndrome classification
+# - **Agent 5:** Checklist generation
+# - SITREP narrative generation
+#
+# **Adaptation method:** Prompt engineering (zero-shot + JSON schema)
 #
 # > **Note:** MedGemma is a gated model. You need to:
-# > 1. Accept the license at https://huggingface.co/google/medgemma-4b-it
+# > 1. Accept the license at https://huggingface.co/google/medgemma-1.5-4b-it
 # > 2. Add your HuggingFace token as a Kaggle Secret named `HF_TOKEN`
 
 # %%
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForImageTextToText, AutoProcessor
 
 # --- HuggingFace authentication (for gated models like MedGemma) ---
 HF_TOKEN = None
@@ -124,15 +130,15 @@ else:
         print("⚠️  No HF_TOKEN set — MedGemma may fail to load")
 
 # %%
-# Load MedGemma
-print("Loading MedGemma-4b-it...")
+# Load MedGemma 1.5
+print("Loading MedGemma 1.5 (4b-it)...")
 t0 = time.time()
 
-MEDGEMMA_ID = "google/medgemma-4b-it"
-mg_tokenizer = AutoTokenizer.from_pretrained(
+MEDGEMMA_ID = "google/medgemma-1.5-4b-it"
+mg_processor = AutoProcessor.from_pretrained(
     MEDGEMMA_ID, trust_remote_code=True, token=HF_TOKEN
 )
-mg_model = AutoModelForCausalLM.from_pretrained(
+mg_model = AutoModelForImageTextToText.from_pretrained(
     MEDGEMMA_ID,
     trust_remote_code=True,
     torch_dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
@@ -141,7 +147,7 @@ mg_model = AutoModelForCausalLM.from_pretrained(
 )
 mg_model.eval()
 device = next(mg_model.parameters()).device
-print(f"MedGemma loaded on {device} in {time.time()-t0:.1f}s ✅")
+print(f"MedGemma 1.5 loaded on {device} in {time.time()-t0:.1f}s ✅")
 
 # %% [markdown]
 # ## 3. Helper Functions
@@ -171,20 +177,20 @@ def parse_json_response(text):
 
 
 def run_medgemma(prompt, max_new_tokens=512):
-    """Run MedGemma with chat template."""
-    messages = [{"role": "user", "content": prompt}]
-    input_text = mg_tokenizer.apply_chat_template(
+    """Run MedGemma 1.5 with chat template (AutoProcessor API)."""
+    messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
+    input_text = mg_processor.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True
     )
-    inputs = mg_tokenizer(input_text, return_tensors="pt").to(mg_model.device)
-    with torch.no_grad():
+    inputs = mg_processor(text=input_text, return_tensors="pt").to(mg_model.device)
+    input_len = inputs["input_ids"].shape[1]
+    with torch.inference_mode():
         outputs = mg_model.generate(
             **inputs,
             max_new_tokens=max_new_tokens,
             do_sample=False,
-            pad_token_id=mg_tokenizer.eos_token_id,
         )
-    return mg_tokenizer.decode(outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True).strip()
+    return mg_processor.decode(outputs[0][input_len:], skip_special_tokens=True).strip()
 
 
 def enforce_evidence(encounter, note_text):
@@ -197,14 +203,20 @@ def enforce_evidence(encounter, note_text):
             if not q or q.lower() not in note:
                 encounter["symptoms"][k] = {"value": "unknown", "evidence_quote": None}
                 downgrades.append(f"symptoms.{k}")
-    for k, v in list(encounter.get("other_symptoms", {}).items()):
-        if v.get("value") == "yes":
-            q = v.get("evidence_quote")
-            if not q or q.lower() not in note:
-                encounter["other_symptoms"][k] = {"value": "unknown", "evidence_quote": None}
-                downgrades.append(f"other_symptoms.{k}")
+    other_symp = encounter.get("other_symptoms", {})
+    if isinstance(other_symp, dict):
+        for k, v in list(other_symp.items()):
+            if isinstance(v, dict) and v.get("value") == "yes":
+                q = v.get("evidence_quote")
+                if not q or q.lower() not in note:
+                    encounter["other_symptoms"][k] = {"value": "unknown", "evidence_quote": None}
+                    downgrades.append(f"other_symptoms.{k}")
     valid_flags = []
     for flag in encounter.get("red_flags", []):
+        if isinstance(flag, str):
+            # Model returned plain string — drop it (no evidence)
+            downgrades.append(f"red_flag:{flag}")
+            continue
         q = flag.get("evidence_quote", "")
         if q and q.lower() in note:
             valid_flags.append(flag)
@@ -295,18 +307,20 @@ def process_note(note_text, encounter_id, location_id, week_id):
         elif not (quote and isinstance(quote, str) and quote.strip()):
             quote = None
             val = "unknown"
-        symptoms[key] = {"value": val, "evidence_quote": quote}
+        symptoms[key] = {"value": val, "evidence_quote": quote, "duration": claim.get("duration") if val == "yes" else None}
 
     # Normalize other_symptoms
     other_symp = {}
-    for k, v in parsed.get("other_symptoms", {}).items():
-        if isinstance(v, dict):
+    raw_other = parsed.get("other_symptoms", {})
+    if isinstance(raw_other, dict):
+        for k, v in raw_other.items():
             val = str(v.get("value","unknown")).lower().strip()
             if val not in ("yes","no"): val = "unknown"
             q = v.get("evidence_quote")
-            if val != "yes": q = None
-            elif not (q and isinstance(q, str) and q.strip()): q = None; val = "unknown"
-            other_symp[k] = {"value": val, "evidence_quote": q}
+            if val != "yes": q = None; dur = None
+            elif not (q and isinstance(q, str) and q.strip()): q = None; val = "unknown"; dur = None
+            else: dur = v.get("duration")
+            other_symp[k] = {"value": val, "evidence_quote": q, "duration": dur}
 
     # Normalize patient
     pat = parsed.get("patient", {})
@@ -625,10 +639,22 @@ print(f"Results saved to {out_path} ✅")
 
 # %%
 print("=" * 60)
-print("🎉 CHW Copilot Pipeline Complete!")
+print("🎉 CHW Copilot — 6-Agent Agentic Pipeline Complete!")
 print("=" * 60)
 print(f"Notes processed:        {len(results)}")
 print(f"Syndrome accuracy:      {accuracy:.1%}")
 print(f"Evidence grounding:     {grounded_claims}/{total_claims} ({grounded_claims/max(total_claims,1):.1%})")
 print(f"Avg time per note:      {avg_time:.1f}s")
 print(f"Model: {MEDGEMMA_ID}")
+print()
+print("Agent Pipeline Summary:")
+print("  1. Encounter Extractor  — MedGemma 1.5 (zero-shot JSON extraction)")
+print("  2. Evidence Grounder    — Deterministic substring check")
+print("  3. Hallucination Detect — Strawberry/Pythea budget_gap analysis")
+print("  4. Syndrome Tagger      — MedGemma 1.5 (classification)")
+print("  5. Checklist Generator   — MedGemma 1.5 (follow-up questions)")
+print("  6. Schema Validator      — JSON Schema validation")
+print()
+print("Adaptation: Prompt engineering — zero-shot + JSON schema")
+print("Safety: Evidence grounding + Strawberry hallucination detection")
+print("Privacy: Offline-first, no PII in prompts, no external API calls")

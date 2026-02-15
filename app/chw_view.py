@@ -1,0 +1,387 @@
+"""CHW View — Field worker interface for note processing.
+
+Features:
+- Note entry (text area) + voice note upload
+- Side-by-side view: raw note with evidence ↔ structured encounter
+- Evidence grounding visual (grounded ✓ / downgraded ⚠ / flagged 🚨)
+- Strawberry hallucination detection results
+- Syndrome tag badge with trigger quotes
+- Follow-up checklist with priority colors
+- Pipeline trace (collapsible agent-by-agent view)
+"""
+import streamlit as st
+import re
+from typing import Dict, Any, Optional
+
+
+def highlight_evidence_in_note(note_text: str, encounter: Dict, hallucination_check: Optional[Dict] = None) -> str:
+    """Highlight evidence quotes in the original note text.
+
+    Green for grounded claims, red for flagged hallucinations.
+    """
+    highlighted = note_text
+    flagged_quotes = set()
+
+    # Collect flagged claim quotes
+    if hallucination_check and hallucination_check.get("flagged"):
+        for fc in hallucination_check.get("flagged_claims", []):
+            # Find the corresponding evidence quote
+            claim = fc.get("claim", "")
+            for sym_data in encounter.get("symptoms", {}).values():
+                if isinstance(sym_data, dict) and sym_data.get("evidence_quote"):
+                    if sym_data["evidence_quote"].lower() in claim.lower() or claim.lower() in sym_data["evidence_quote"].lower():
+                        flagged_quotes.add(sym_data["evidence_quote"])
+
+    # Collect all evidence quotes
+    all_quotes = []
+    for section in ["symptoms", "other_symptoms"]:
+        for key, val in encounter.get(section, {}).items():
+            if isinstance(val, dict) and val.get("evidence_quote"):
+                quote = val["evidence_quote"]
+                if quote:
+                    is_flagged = quote in flagged_quotes
+                    all_quotes.append((quote, is_flagged))
+
+    for flag in encounter.get("red_flags", []):
+        if isinstance(flag, dict) and flag.get("evidence_quote"):
+            all_quotes.append((flag["evidence_quote"], False))
+
+    # Sort by length (longest first) to avoid partial replacements
+    all_quotes.sort(key=lambda x: len(x[0]), reverse=True)
+
+    for quote, is_flagged in all_quotes:
+        if quote.lower() in highlighted.lower():
+            idx = highlighted.lower().find(quote.lower())
+            original = highlighted[idx:idx + len(quote)]
+            css_class = "flagged" if is_flagged else ""
+            highlighted = (
+                highlighted[:idx]
+                + f'<mark class="{css_class}">{original}</mark>'
+                + highlighted[idx + len(quote):]
+            )
+
+    return highlighted
+
+
+def render_symptom_card(name: str, data: Dict, budget_gaps: Dict = None) -> None:
+    """Render a single symptom with evidence status."""
+    value = data.get("value", "unknown")
+    quote = data.get("evidence_quote", "")
+
+    # Determine status
+    if value == "yes":
+        claim_key = f"Patient has {name.replace('_', ' ')}"
+        matching_gap = None
+        if budget_gaps:
+            for k, v in budget_gaps.items():
+                if name.replace("_", " ") in k.lower():
+                    matching_gap = v
+                    break
+
+        if matching_gap is not None and matching_gap > 2:
+            icon = "🚨"
+            css = "evidence-flagged"
+            status_text = f"FLAGGED (gap: {matching_gap:.1f} bits)"
+        elif quote:
+            icon = "✅"
+            css = "evidence-grounded"
+            status_text = "Grounded"
+        else:
+            icon = "⚠️"
+            css = "evidence-downgraded"
+            status_text = "Downgraded — no evidence"
+    elif value == "no":
+        icon = "❌"
+        css = "evidence-grounded"
+        status_text = "Absent"
+    else:
+        icon = "❓"
+        css = ""
+        status_text = "Unknown"
+
+    with st.container():
+        col_name, col_status = st.columns([3, 2])
+        with col_name:
+            st.markdown(f"{icon} **{name.replace('_', ' ').title()}**: `{value}`")
+        with col_status:
+            if css:
+                st.markdown(f"<small style='opacity:0.7'>{status_text}</small>", unsafe_allow_html=True)
+
+        if quote and value == "yes":
+            st.markdown(
+                f'<div class="{css}"><span class="evidence-quote">"…{quote}…"</span></div>',
+                unsafe_allow_html=True,
+            )
+
+
+def render_pipeline_trace(agent_trace: list) -> None:
+    """Render the pipeline agent trace."""
+    total_time = sum(step.get("duration_s", 0) for step in agent_trace)
+
+    st.markdown(f"**Total pipeline time: {total_time:.2f}s** | {len(agent_trace)} agents")
+
+    for step in agent_trace:
+        fallback = step.get("fallback_used", False)
+        is_flagged = "flagged" in step.get("output_summary", "").lower() and "0 flagged" not in step.get("output_summary", "")
+        border_color = "#ef4444" if is_flagged else ("#f59e0b" if fallback else "#14b8a6")
+        bg = "rgba(239,68,68,0.08)" if is_flagged else ("rgba(245,158,11,0.08)" if fallback else "rgba(20,184,166,0.06)")
+
+        status_badge = ""
+        if is_flagged:
+            status_badge = '<span style="background:rgba(239,68,68,0.15);color:#ef4444;padding:2px 8px;border-radius:10px;font-size:0.75em;font-weight:600;">⚠ FLAGGED</span>'
+        elif fallback:
+            status_badge = '<span style="background:rgba(245,158,11,0.15);color:#f59e0b;padding:2px 8px;border-radius:10px;font-size:0.75em;font-weight:600;">↩ FALLBACK</span>'
+
+        st.markdown(f"""
+        <div style="display:flex;align-items:center;justify-content:space-between;
+                    padding:0.6rem 1rem;background:{bg};border-radius:8px;
+                    margin:0.35rem 0;border-left:3px solid {border_color};">
+            <div>
+                <strong style="color:#f1f5f9">{step['name']}</strong> {status_badge}
+                <br><small style="color:#94a3b8">{step.get('output_summary', '')}</small>
+            </div>
+            <div style="text-align:right;min-width:70px;">
+                <span style="color:#14b8a6;font-weight:600;">{step['duration_s']:.3f}s</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+def render_chw_view():
+    """Main CHW view renderer."""
+    from demo_data import DEMO_NOTES, DEMO_RESULTS, FAILURE_MODE
+
+    st.markdown("## 👩‍⚕️ Community Health Worker View")
+    st.markdown("Enter a field note or select a demo case to process through the agentic pipeline.")
+
+    # ── Input Section ────────────────────────────────────────
+    tab_text, tab_voice, tab_demo = st.tabs(["📝 Text Note", "🎤 Voice Note", "📋 Demo Cases"])
+
+    selected_result = None
+    selected_note = None
+
+    with tab_text:
+        note_input = st.text_area(
+            "CHW Field Note",
+            height=120,
+            placeholder="Enter a CHW field note... e.g., 'Child 3yo M fever 3 days cough bad rash on chest no diarrhea'",
+        )
+        col1, col2 = st.columns([1, 4])
+        with col1:
+            if st.button("🔬 Process", type="primary", use_container_width=True):
+                if note_input.strip():
+                    st.session_state.custom_note = note_input
+                    st.session_state.show_custom = True
+
+        if st.session_state.get("show_custom") and st.session_state.get("custom_note"):
+            st.info("💡 In live mode with a GPU, this would run the full MedGemma pipeline. Using demo data for illustration.")
+            selected_result = DEMO_RESULTS[0]
+            selected_note = st.session_state.custom_note
+
+    with tab_voice:
+        st.markdown("Upload an audio recording of a CHW field visit.")
+        audio_file = st.file_uploader("Upload audio file", type=["wav", "mp3", "m4a", "ogg"])
+        if audio_file:
+            st.audio(audio_file)
+            if st.button("🎤 Transcribe & Process", type="primary"):
+                st.info("🔌 MedASR integration: In production, this audio would be transcribed by Google MedASR and fed into the pipeline.")
+                selected_result = DEMO_RESULTS[0]
+                selected_note = DEMO_RESULTS[0]["encounter"].get("note_text", DEMO_NOTES[0]["note_text"])
+
+    with tab_demo:
+        demo_cols = st.columns(len(DEMO_NOTES) + 1)
+        for i, note in enumerate(DEMO_NOTES):
+            with demo_cols[i]:
+                if st.button(f"📄 {note['title']}", key=f"demo_{i}", use_container_width=True):
+                    selected_result = DEMO_RESULTS[i]
+                    selected_note = note["note_text"]
+                    st.session_state.selected_demo = i
+
+        # Failure mode button
+        with demo_cols[-1]:
+            if st.button("🚨 Failure Mode", key="demo_fail", use_container_width=True):
+                st.session_state.show_failure = True
+
+        # Check session state for persistent selection
+        if st.session_state.get("selected_demo") is not None and selected_result is None:
+            i = st.session_state.selected_demo
+            selected_result = DEMO_RESULTS[i]
+            selected_note = DEMO_NOTES[i]["note_text"]
+
+    # ── Failure Mode View ────────────────────────────────────
+    if st.session_state.get("show_failure"):
+        st.markdown("---")
+        st.markdown(f"### {FAILURE_MODE['title']}")
+        st.warning(FAILURE_MODE["description"])
+
+        col_note, col_result = st.columns(2)
+        with col_note:
+            st.markdown("**Raw Note:**")
+            highlighted = highlight_evidence_in_note(
+                FAILURE_MODE["note_text"],
+                FAILURE_MODE["encounter"],
+                FAILURE_MODE["hallucination_check"],
+            )
+            st.markdown(
+                f'<div class="glass-card note-text" style="line-height:1.8">{highlighted}</div>',
+                unsafe_allow_html=True,
+            )
+
+        with col_result:
+            st.markdown("**Strawberry Detection:**")
+            hc = FAILURE_MODE["hallucination_check"]
+            for fc in hc.get("flagged_claims", []):
+                st.markdown(
+                    f'<div class="evidence-flagged">'
+                    f'🚨 <strong>{fc["claim"]}</strong><br>'
+                    f'<small>Budget gap: {fc["budget_gap"]:.1f} bits — {fc["reason"]}</small>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+            st.markdown("**Budget Gaps (bits):**")
+            for claim, gap in hc.get("budget_gaps", {}).items():
+                color = "#ef4444" if gap > 2 else ("#f59e0b" if gap > 0 else "#22c55e")
+                label = "FLAGGED" if gap > 2 else ("Suspicious" if gap > 0 else "Supported")
+                st.markdown(
+                    f'<div style="display:flex;justify-content:space-between;padding:0.3rem 0;">'
+                    f'<span style="color:#94a3b8">{claim}</span>'
+                    f'<span style="color:{color};font-weight:600">{gap:+.1f} — {label}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+        with st.expander("🔍 Pipeline Trace", expanded=False):
+            render_pipeline_trace(FAILURE_MODE["agent_trace"])
+        return
+
+    # ── Results Display ──────────────────────────────────────
+    if selected_result is None:
+        st.markdown(
+            '<div class="glass-card" style="text-align:center;padding:3rem;">'
+            '<h3 style="color:#94a3b8">Select a demo case or enter a note to begin</h3>'
+            '<p style="color:#64748b">The agentic pipeline will process the note through 6 specialized agents</p>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    encounter = selected_result["encounter"]
+    syndrome = selected_result["syndrome_tag"]
+    checklist = selected_result["checklist"]
+    hallucination = selected_result.get("hallucination_check", {})
+    budget_gaps = hallucination.get("budget_gaps", {})
+
+    st.markdown("---")
+
+    # ── Side-by-side: Note ↔ Encounter ───────────────────────
+    col_note, col_encounter = st.columns(2)
+
+    with col_note:
+        st.markdown("### 📄 Raw Note")
+        highlighted = highlight_evidence_in_note(selected_note, encounter, hallucination)
+        st.markdown(
+            f'<div class="glass-card note-text" style="line-height:1.8;font-size:1.05em">{highlighted}</div>',
+            unsafe_allow_html=True,
+        )
+
+    with col_encounter:
+        st.markdown("### 🏥 Structured Encounter")
+        # Patient info
+        patient = encounter.get("patient", {})
+        age = patient.get("age_years", "?")
+        sex = patient.get("sex", "?")
+        severity = encounter.get("severity", "?")
+        st.markdown(
+            f'<div class="glass-card">'
+            f'<strong>Patient:</strong> {age}y {sex} &nbsp;|&nbsp; '
+            f'<strong>Severity:</strong> {severity} &nbsp;|&nbsp; '
+            f'<strong>Onset:</strong> {encounter.get("onset", "?")} &nbsp;|&nbsp; '
+            f'<strong>Referral:</strong> {"Yes ✓" if encounter.get("referral") else "No"}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+        # Symptoms
+        st.markdown("**Symptoms:**")
+        for name, data in encounter.get("symptoms", {}).items():
+            if isinstance(data, dict):
+                render_symptom_card(name, data, budget_gaps)
+
+        if encounter.get("other_symptoms"):
+            st.markdown("**Other Symptoms:**")
+            for name, data in encounter.get("other_symptoms", {}).items():
+                if isinstance(data, dict):
+                    render_symptom_card(name, data, budget_gaps)
+
+        # Red flags
+        if encounter.get("red_flags"):
+            st.markdown("**🚩 Red Flags:**")
+            for flag in encounter["red_flags"]:
+                if isinstance(flag, dict):
+                    st.markdown(
+                        f'<div class="evidence-grounded">'
+                        f'🚩 <strong>{flag.get("flag", "").replace("_", " ").title()}</strong>: '
+                        f'<span class="evidence-quote">"…{flag.get("evidence_quote", "")}…"</span>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+
+    # ── Syndrome Tag ─────────────────────────────────────────
+    st.markdown("---")
+    col_syn, col_check = st.columns(2)
+
+    with col_syn:
+        st.markdown("### 🏷️ Syndrome Classification")
+        tag = syndrome.get("syndrome_tag", "?")
+        conf = syndrome.get("confidence", "?")
+        conf_color = {"high": "#22c55e", "medium": "#f59e0b", "low": "#ef4444"}.get(conf, "#94a3b8")
+
+        st.markdown(
+            f'<div class="glass-card">'
+            f'<span style="font-size:1.5rem;font-weight:700;color:#14b8a6">{tag.replace("_", " ").upper()}</span>'
+            f'&nbsp;&nbsp;<span style="background:rgba(0,0,0,0.3);color:{conf_color};'
+            f'padding:4px 12px;border-radius:20px;font-size:0.8rem;font-weight:600;">{conf.upper()}</span>'
+            f'<br><br><span style="color:#94a3b8">{syndrome.get("reasoning", "")}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+        if syndrome.get("trigger_quotes"):
+            st.markdown("**Trigger Quotes:**")
+            for tq in syndrome["trigger_quotes"]:
+                st.markdown(f'<span class="evidence-quote">"…{tq}…"</span>', unsafe_allow_html=True)
+
+    # ── Checklist ────────────────────────────────────────────
+    with col_check:
+        st.markdown("### 📋 Follow-up Checklist")
+        questions = checklist.get("questions", [])
+        if questions:
+            for q in questions:
+                priority = q.get("priority", "medium")
+                p_icon = {"high": "🔴", "medium": "🟡", "low": "🔵"}.get(priority, "⚪")
+                st.markdown(f"{p_icon} **[{priority.upper()}]** {q['question']}")
+        else:
+            st.info("No follow-up questions needed — encounter is complete.")
+
+    # ── Hallucination Check Summary ──────────────────────────
+    if hallucination and hallucination.get("available"):
+        st.markdown("---")
+        st.markdown("### 🍓 Strawberry Hallucination Check")
+        hc = hallucination
+        if hc.get("flagged"):
+            st.error(f"⚠️ {len(hc['flagged_claims'])} claim(s) flagged as potentially hallucinated")
+            for fc in hc["flagged_claims"]:
+                st.markdown(
+                    f'<div class="evidence-flagged">'
+                    f'🚨 <strong>{fc["claim"]}</strong> — budget gap: {fc["budget_gap"]:.1f} bits'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.success(f"✅ All {hc.get('claims_checked', 0)} claims verified — no hallucinations detected")
+
+    # ── Pipeline Trace ───────────────────────────────────────
+    st.markdown("---")
+    with st.expander("🔍 Pipeline Trace — Agent-by-Agent Execution", expanded=False):
+        render_pipeline_trace(selected_result.get("agent_trace", []))

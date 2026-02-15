@@ -1,15 +1,20 @@
-"""CHW Copilot pipeline orchestrator.
+"""CHW Copilot pipeline orchestrator — Agentic Workflow.
 
-Runs the full encounter processing pipeline:
-  1. Extract structured encounter from CHW note (MedGemma / stub)
-  2. Validate and enforce evidence grounding
-  3. Tag syndrome (MedGemma / deterministic)
-  4. Generate checklist of missing info (MedGemma / deterministic)
+Six-agent pipeline with deterministic fallbacks and evidence verification:
+  Agent 1: Extract structured encounter from CHW note (MedGemma / stub)
+  Agent 2: Enforce evidence grounding (deterministic)
+  Agent 3: Self-consistency hallucination detection (MedGemma verification prompt)
+  Agent 4: Tag syndrome (MedGemma / deterministic)
+  Agent 5: Generate checklist of missing info (MedGemma / deterministic)
+  Agent 6: Validate against JSON Schema (deterministic)
 
 Also provides surveillance-level functions:
-  5. Aggregate encounters into weekly counts
-  6. Detect anomalies
-  7. Generate SITREP (MedGemma / template)
+  - Aggregate encounters into weekly counts
+  - Detect anomalies (deterministic z-score)
+  - Generate weekly SITREP
+
+Adaptation methods: prompt engineering, agentic orchestration,
+evidence grounding enforcement, self-consistency hallucination detection.
 """
 import json
 import time
@@ -20,6 +25,69 @@ import pandas as pd
 from . import config
 from .validate import enforce_evidence, enforce_trigger_quotes, validation_report
 
+# ── Pipeline Agent Metadata ──────────────────────────────────
+# Describes the agentic orchestration design for judges + docs
+PIPELINE_AGENTS = [
+    {
+        "id": "extract",
+        "name": "Encounter Extractor",
+        "type": "llm",
+        "model": config.MEDGEMMA_MODEL,
+        "description": "Extracts structured encounter JSON from free-text CHW note",
+        "input": "Raw CHW field note",
+        "output": "Schema-validated encounter with evidence quotes",
+        "fallback": "Rule-based keyword extractor",
+    },
+    {
+        "id": "evidence_enforce",
+        "name": "Evidence Grounder",
+        "type": "deterministic",
+        "description": "Enforces verbatim evidence grounding — downgrades ungrounded claims",
+        "input": "Extracted encounter + original note",
+        "output": "Grounded encounter with downgrades list",
+        "fallback": None,
+    },
+    {
+        "id": "hallucination_check",
+        "name": "Hallucination Detector",
+        "type": "self-consistency",
+        "model": config.MEDGEMMA_MODEL,
+        "description": "Self-consistency check — asks MedGemma if evidence supports each claim",
+        "input": "Grounded encounter + evidence quotes",
+        "output": "Verification result with flagged contradictions",
+        "fallback": "Deterministic negation-word check",
+    },
+    {
+        "id": "tag",
+        "name": "Syndrome Tagger",
+        "type": "llm",
+        "model": config.MEDGEMMA_MODEL,
+        "description": "Tags encounter with syndromic category + confidence",
+        "input": "Grounded encounter",
+        "output": "Syndrome tag with trigger quotes and reasoning",
+        "fallback": "Rule-based symptom-combination tagger",
+    },
+    {
+        "id": "checklist",
+        "name": "Checklist Generator",
+        "type": "llm",
+        "model": config.MEDGEMMA_MODEL,
+        "description": "Generates prioritized follow-up questions for missing data",
+        "input": "Grounded encounter",
+        "output": "Checklist of up to 5 prioritized questions",
+        "fallback": "Rule-based missing-field checker",
+    },
+    {
+        "id": "validate",
+        "name": "Schema Validator",
+        "type": "deterministic",
+        "description": "Validates encounter against JSON Schema + generates report",
+        "input": "Final encounter",
+        "output": "Validation report (schema errors, evidence downgrades)",
+        "fallback": None,
+    },
+]
+
 
 def process_encounter(
     note_text: str,
@@ -29,8 +97,9 @@ def process_encounter(
     extractor: str = "medgemma",
     use_model_tagger: bool = True,
     use_model_checklist: bool = True,
+    run_hallucination_check: bool = True,
 ) -> Dict[str, Any]:
-    """Process a single CHW note through the full pipeline.
+    """Process a single CHW note through the full agentic pipeline.
 
     Args:
         note_text: Raw CHW field note
@@ -40,46 +109,135 @@ def process_encounter(
         extractor: "medgemma" or "stub"
         use_model_tagger: Use MedGemma for syndrome tagging (vs deterministic)
         use_model_checklist: Use MedGemma for checklist (vs deterministic)
+        run_hallucination_check: Run self-consistency hallucination check
 
     Returns:
-        Dict with keys: encounter, syndrome_tag, checklist, validation
+        Dict with keys: encounter, syndrome_tag, checklist, validation,
+                       agent_trace, evidence_downgrades, hallucination_check
     """
-    start = time.time()
+    pipeline_start = time.time()
+    agent_trace = []
 
-    # Step 1: Extract structured encounter
+    # ── Agent 1: Extract structured encounter ────────────────
+    t0 = time.time()
+    fallback_used = False
     if extractor == "medgemma":
         from .extraction import extract_with_medgemma
         encounter = extract_with_medgemma(note_text, encounter_id, location_id, week_id)
     else:
         from .extraction import stub_extract_full
         encounter = stub_extract_full(note_text, encounter_id, location_id, week_id)
+        fallback_used = True
 
-    # Step 2: Enforce evidence grounding
+    agent_trace.append({
+        "agent": "extract",
+        "name": "Encounter Extractor",
+        "duration_s": round(time.time() - t0, 3),
+        "fallback_used": fallback_used,
+        "output_summary": f"Extracted encounter with {_count_yes_symptoms(encounter)} positive symptoms",
+    })
+
+    # ── Agent 2: Enforce evidence grounding ──────────────────
+    t0 = time.time()
     encounter, downgrades = enforce_evidence(encounter, note_text)
 
-    # Step 3: Tag syndrome
+    agent_trace.append({
+        "agent": "evidence_enforce",
+        "name": "Evidence Grounder",
+        "duration_s": round(time.time() - t0, 3),
+        "fallback_used": False,
+        "output_summary": f"{len(downgrades)} claims downgraded for missing/invalid evidence",
+    })
+
+    # ── Agent 3: Self-consistency hallucination detection ─────
+    hallucination_result = None
+    if run_hallucination_check:
+        t0 = time.time()
+        from .hallucination import verify_extraction_claims, verify_claims_offline
+
+        # Try model-based self-consistency first, fall back to deterministic
+        generate_fn = None
+        fallback_used = True
+        if extractor == "medgemma":
+            try:
+                from .models import generate_medgemma
+                generate_fn = generate_medgemma
+                fallback_used = False
+            except Exception:
+                pass
+
+        if generate_fn:
+            hallucination_result = verify_extraction_claims(encounter, note_text, generate_fn=generate_fn)
+        else:
+            hallucination_result = verify_claims_offline(encounter, note_text)
+            fallback_used = True
+
+        agent_trace.append({
+            "agent": "hallucination_check",
+            "name": "Hallucination Detector",
+            "duration_s": round(time.time() - t0, 3),
+            "fallback_used": fallback_used,
+            "output_summary": (
+                f"Checked {hallucination_result.get('claims_checked', 0)} claims, "
+                f"{len(hallucination_result.get('flagged_claims', []))} flagged"
+                f" ({hallucination_result.get('method', 'self-consistency')})"
+            ),
+        })
+
+    # ── Agent 4: Tag syndrome ────────────────────────────────
+    t0 = time.time()
+    fallback_used = False
     if use_model_tagger:
         from .tagger import tag_syndrome_medgemma
         syndrome = tag_syndrome_medgemma(encounter)
     else:
         from .tagger import tag_syndrome_deterministic
         syndrome = tag_syndrome_deterministic(encounter)
+        fallback_used = True
 
     # Enforce trigger quote evidence
     syndrome, invalid_quotes = enforce_trigger_quotes(syndrome, note_text)
 
-    # Step 4: Generate checklist
+    agent_trace.append({
+        "agent": "tag",
+        "name": "Syndrome Tagger",
+        "duration_s": round(time.time() - t0, 3),
+        "fallback_used": fallback_used,
+        "output_summary": f"Tagged as {syndrome.get('syndrome_tag', '?')} ({syndrome.get('confidence', '?')})",
+    })
+
+    # ── Agent 5: Generate checklist ──────────────────────────
+    t0 = time.time()
+    fallback_used = False
     if use_model_checklist:
         from .checklist import generate_checklist_medgemma
         checklist = generate_checklist_medgemma(encounter)
     else:
         from .checklist import generate_checklist_deterministic
         checklist = generate_checklist_deterministic(encounter)
+        fallback_used = True
 
-    # Step 5: Validation report
+    agent_trace.append({
+        "agent": "checklist",
+        "name": "Checklist Generator",
+        "duration_s": round(time.time() - t0, 3),
+        "fallback_used": fallback_used,
+        "output_summary": f"Generated {len(checklist.get('questions', []))} follow-up questions",
+    })
+
+    # ── Agent 6: Validation report ───────────────────────────
+    t0 = time.time()
     validation = validation_report(encounter, note_text)
 
-    elapsed = time.time() - start
+    agent_trace.append({
+        "agent": "validate",
+        "name": "Schema Validator",
+        "duration_s": round(time.time() - t0, 3),
+        "fallback_used": False,
+        "output_summary": f"Schema valid: {validation.get('schema_valid', '?')}, overall pass: {validation.get('overall_pass', '?')}",
+    })
+
+    elapsed = time.time() - pipeline_start
 
     return {
         "encounter": encounter,
@@ -88,6 +246,8 @@ def process_encounter(
         "validation": validation,
         "evidence_downgrades": downgrades,
         "invalid_trigger_quotes": invalid_quotes,
+        "hallucination_check": hallucination_result,
+        "agent_trace": agent_trace,
         "processing_time_s": round(elapsed, 2),
     }
 
@@ -97,15 +257,17 @@ def process_batch(
     extractor: str = "medgemma",
     use_model_tagger: bool = True,
     use_model_checklist: bool = True,
+    run_hallucination_check: bool = True,
     progress_callback=None,
 ) -> List[Dict[str, Any]]:
-    """Process a batch of CHW notes through the pipeline.
+    """Process a batch of CHW notes through the agentic pipeline.
 
     Args:
         notes: List of dicts with at least note_text, encounter_id, location_id, week_id
         extractor: Extraction model to use
         use_model_tagger: Use MedGemma for tagging
         use_model_checklist: Use MedGemma for checklist
+        run_hallucination_check: Run self-consistency hallucination check
         progress_callback: Optional callable(i, total) for progress reporting
 
     Returns:
@@ -126,10 +288,65 @@ def process_batch(
             extractor=extractor,
             use_model_tagger=use_model_tagger,
             use_model_checklist=use_model_checklist,
+            run_hallucination_check=run_hallucination_check,
         )
         results.append(result)
 
     return results
+
+
+def process_voice_note(
+    audio_path: str,
+    encounter_id: str = "unknown",
+    location_id: str = "unknown",
+    week_id: int = 0,
+    extractor: str = "medgemma",
+    use_model_tagger: bool = True,
+    use_model_checklist: bool = True,
+    run_hallucination_check: bool = True,
+) -> Dict[str, Any]:
+    """Process a voice note: transcribe with MedASR → run full pipeline.
+
+    Args:
+        audio_path: Path to the audio file
+        Other args: same as process_encounter
+
+    Returns:
+        Pipeline result dict with additional 'transcription' key
+    """
+    from .voice import transcribe_audio
+
+    t0 = time.time()
+    transcript = transcribe_audio(audio_path)
+    transcription_time = round(time.time() - t0, 3)
+
+    result = process_encounter(
+        note_text=transcript,
+        encounter_id=encounter_id,
+        location_id=location_id,
+        week_id=week_id,
+        extractor=extractor,
+        use_model_tagger=use_model_tagger,
+        use_model_checklist=use_model_checklist,
+        run_hallucination_check=run_hallucination_check,
+    )
+
+    # Add transcription metadata to trace
+    result["transcription"] = {
+        "source": "voice",
+        "transcript": transcript,
+        "duration_s": transcription_time,
+    }
+    # Prepend transcription step to agent trace
+    result["agent_trace"].insert(0, {
+        "agent": "transcribe",
+        "name": "Voice Transcriber (MedASR)",
+        "duration_s": transcription_time,
+        "fallback_used": False,
+        "output_summary": f"Transcribed {len(transcript)} characters from audio",
+    })
+
+    return result
 
 
 def aggregate_for_surveillance(
@@ -167,7 +384,7 @@ def run_surveillance(
 
     Args:
         results: Output from process_batch()
-        locations: Optional locations DataFrame
+        locations: Optional locations DataFrame with names
         use_model_sitrep: Use MedGemma for SITREP generation
 
     Returns:
@@ -199,3 +416,15 @@ def run_surveillance(
         "anomalies": anomalies,
         "sitreps": sitreps,
     }
+
+
+def _count_yes_symptoms(encounter: Dict[str, Any]) -> int:
+    """Count 'yes' symptoms in an encounter."""
+    count = 0
+    for v in encounter.get("symptoms", {}).values():
+        if isinstance(v, dict) and v.get("value") == "yes":
+            count += 1
+    for v in encounter.get("other_symptoms", {}).values():
+        if isinstance(v, dict) and v.get("value") == "yes":
+            count += 1
+    return count

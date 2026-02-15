@@ -179,6 +179,10 @@
         "evidence_quote": {
           "description": "Verbatim substring from note_text supporting this claim. Required when value is 'yes', must be null when value is 'unknown' or 'no'.",
           "type": ["string", "null"]
+        },
+        "duration": {
+          "description": "How long this symptom has been present, e.g. '3 days', '1 week', '2 hours'. Null if not stated.",
+          "type": ["string", "null"]
         }
       },
       "if": {

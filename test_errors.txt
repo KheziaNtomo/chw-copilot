@@ -1,0 +1,32 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-8.4.2, pluggy-1.6.0
+rootdir: C:\Users\khezia\Documents\medGemma
+plugins: anyio-4.12.1
+collected 13 items
+
+tests\test_schema_validation.py F..F                                     [ 30%]
+tests\test_deterministic_fallbacks.py .F.......                          [100%]
+
+================================== FAILURES ===================================
+__________________ TestEncounterSchema.test_valid_encounter ___________________
+tests\test_schema_validation.py:40: in test_valid_encounter
+    assert is_valid, f"Valid encounter failed: {errors}"
+E   AssertionError: Valid encounter failed: [": 'note_text' is a required property", ": 'chw_id' is a required property", ": 'area_id' is a required property", ": 'household_id' is a required property", ": 'onset_days' is a required property", ": Additional properties are not allowed ('onset', 'treatment_given' were unexpected)", "patient: 'age_group' is a required property", "referral: False is not of type 'object', 'null'", "symptoms: 'watery_diarrhea' is a required property", "symptoms: 'bloody_diarrhea' is a required property", "symptoms: 'difficulty_breathing' is a required property", "symptoms: Additional properties are not allowed ('diarrhea' was unexpected)", 'symptoms.cough.evidence_quote: None was expected', 'symptoms.rash.evidence_quote: None was expected', 'symptoms.vomiting.evidence_quote: None was expected']
+E   assert False
+___________________ TestSyndromeSchema.test_valid_syndrome ____________________
+tests\test_schema_validation.py:92: in test_valid_syndrome
+    assert is_valid, f"Valid syndrome failed: {errors}"
+E   AssertionError: Valid syndrome failed: [": 'encounter_id' is a required property"]
+E   assert False
+_____________ TestDeterministicTagger.test_acute_watery_diarrhea ______________
+tests\test_deterministic_fallbacks.py:53: in test_acute_watery_diarrhea
+    assert result["syndrome_tag"] == "acute_watery_diarrhea"
+E   AssertionError: assert 'other' == 'acute_watery_diarrhea'
+E     
+E     - acute_watery_diarrhea
+E     + other
+=========================== short test summary info ===========================
+FAILED tests/test_schema_validation.py::TestEncounterSchema::test_valid_encounter
+FAILED tests/test_schema_validation.py::TestSyndromeSchema::test_valid_syndrome
+FAILED tests/test_deterministic_fallbacks.py::TestDeterministicTagger::test_acute_watery_diarrhea
+======================== 3 failed, 10 passed in 0.84s =========================

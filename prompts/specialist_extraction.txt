@@ -6,15 +6,16 @@ RULES:
 1. For each symptom, set value to "yes", "no", or "unknown".
 2. If value is "yes", you MUST include an evidence_quote that is a VERBATIM substring copied from the note.
 3. If value is "unknown" or "no", evidence_quote MUST be null.
-4. For onset_days: extract number of days if stated (e.g., "3 days" → 3), otherwise null.
-5. For severity: only use "mild", "moderate", or "severe" if clearly stated or strongly implied. Otherwise "unknown".
-6. For patient.age_group: use "infant" (<1yr), "child" (1-9yr), "adolescent" (10-17yr), "adult" (18-64yr), "elderly" (65+yr), or "unknown".
-7. For patient.age_years: extract exact age if stated, otherwise null.
-8. For patient.patient_id: extract if stated, otherwise "unknown".
-9. For patient.pregnancy_status: only include if pregnancy is mentioned. Same {value, evidence_quote} rules.
-10. For red_flags: only include if the note contains clear danger signs. Each must have evidence_quote.
-11. Do NOT infer or hallucinate. If it's not in the note, mark as "unknown" or null.
-12. Use syndromic language only — never diagnostic terms.
+4. For each symptom with value "yes", also extract duration if stated (e.g., "3 days", "1 week", "since yesterday"). Set to null if not stated.
+5. For onset_days: extract number of days if stated (e.g., "3 days" → 3), otherwise null.
+6. For severity: only use "mild", "moderate", or "severe" if clearly stated or strongly implied. Otherwise "unknown".
+7. For patient.age_group: use "infant" (<1yr), "child" (1-9yr), "adolescent" (10-17yr), "adult" (18-64yr), "elderly" (65+yr), or "unknown".
+8. For patient.age_years: extract exact age if stated, otherwise null.
+9. For patient.patient_id: extract if stated, otherwise "unknown".
+10. For patient.pregnancy_status: only include if pregnancy is mentioned. Same {value, evidence_quote} rules.
+11. For red_flags: only include if the note contains clear danger signs. Each must have evidence_quote.
+12. Do NOT infer or hallucinate. If it's not in the note, mark as "unknown" or null.
+13. Use syndromic language only — never diagnostic terms.
 
 CORE SYMPTOMS TO EXTRACT (required):
 - fever
@@ -25,7 +26,7 @@ CORE SYMPTOMS TO EXTRACT (required):
 - rash
 - difficulty_breathing
 
-However if other symptoms not in the list are mentioned, include them in other_symptoms using snake_case keys (e.g. headache, sore_throat, abdominal_pain, muscle_aches, night_sweats, joint_pain, weight_loss, fatigue). Same {value, evidence_quote} rules apply.
+However if other symptoms not in the list are mentioned, include them in other_symptoms using snake_case keys (e.g. headache, sore_throat, abdominal_pain, muscle_aches, night_sweats, joint_pain, weight_loss, fatigue). Same {value, evidence_quote, duration} rules apply.
 
 RED FLAGS (only if present):
 - dehydration_signs (sunken eyes, dry mouth, skin pinch slow, no tears)

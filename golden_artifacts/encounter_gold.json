@@ -1,0 +1,32 @@
+{
+  "encounter_id": "gold_001",
+  "location_id": "loc_01",
+  "chw_id": "chw_alpha",
+  "area_id": "area_01",
+  "household_id": "hh_042",
+  "week_id": 5,
+  "note_text": "Child 3yo M fever 3 days cough bad rash on chest no diarrhea mother says not eating gave ORS referred health center",
+  "patient": {
+    "age_years": 3,
+    "age_group": "child",
+    "sex": "male"
+  },
+  "symptoms": {
+    "fever": {"value": "yes", "evidence_quote": "fever 3 days"},
+    "cough": {"value": "yes", "evidence_quote": "cough bad"},
+    "watery_diarrhea": {"value": "no", "evidence_quote": "no diarrhea"},
+    "bloody_diarrhea": {"value": "unknown", "evidence_quote": null},
+    "vomiting": {"value": "unknown", "evidence_quote": null},
+    "rash": {"value": "yes", "evidence_quote": "rash on chest"},
+    "difficulty_breathing": {"value": "unknown", "evidence_quote": null}
+  },
+  "other_symptoms": {
+    "loss_of_appetite": {"value": "yes", "evidence_quote": "not eating"}
+  },
+  "onset_days": 3,
+  "severity": "moderate",
+  "red_flags": [
+    {"flag": "not_eating", "evidence_quote": "mother says not eating"}
+  ],
+  "referral": {"value": "yes", "evidence_quote": "referred health center"}
+}
