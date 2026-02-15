@@ -24,6 +24,45 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ── Authentication ───────────────────────────────────────────
+def check_password():
+    """Returns `True` if the user had a correct password."""
+    # Check if password is set in secrets (for cloud deployment)
+    # If no secrets file or no PASSWORD key, assume local/unprotected mode
+    try:
+        if "PASSWORD" not in st.secrets:
+            return True
+    except (FileNotFoundError, KeyError):
+        return True
+
+    def password_entered():
+        """Checks whether a password entered by the user is correct."""
+        if st.session_state["password"] == st.secrets["PASSWORD"]:
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # don't store password
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        # First run, show input for password.
+        st.text_input(
+            "🔒 Enter Competition Password", type="password", on_change=password_entered, key="password"
+        )
+        return False
+    elif not st.session_state["password_correct"]:
+        # Password incorrect, show input again.
+        st.text_input(
+            "🔒 Enter Competition Password", type="password", on_change=password_entered, key="password"
+        )
+        st.error("😕 Password incorrect")
+        return False
+    else:
+        # Password correct.
+        return True
+
+if not check_password():
+    st.stop()
+
 # ── Load Custom CSS ──────────────────────────────────────────
 css_path = app_dir / "styles.css"
 if css_path.exists():
