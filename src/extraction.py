@@ -59,7 +59,7 @@ def _postprocess_extraction(raw: Dict[str, Any], note_text: str,
             else:
                 quote = None
                 val = "unknown"
-            other_symptoms[key] = {"value": val, "evidence_quote": quote, "duration": v.get("duration") if val == "yes" else None}
+            other_symptoms[key] = {"value": val, "evidence_quote": quote, "duration": claim.get("duration") if val == "yes" else None}
 
     # Normalize patient
     patient_raw = raw.get("patient", {})

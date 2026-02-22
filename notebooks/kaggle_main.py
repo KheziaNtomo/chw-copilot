@@ -315,19 +315,10 @@ else:
 if sim_path.exists() and not anomalies.empty:
     outbreak_week = anomalies["week_id"].max()
     week_anomalies = anomalies[anomalies["week_id"] == outbreak_week]
-    week_counts = sim_df[sim_df["week_id"] == outbreak_week]
-
-    anomaly_csv = week_anomalies.to_csv(index=False)
-    counts_csv = week_counts.to_csv(index=False)
-
-    sitrep_p = sitrep_prompt.replace("{anomalies_csv}", anomaly_csv)
-    sitrep_p = sitrep_p.replace("{weekly_counts_csv}", counts_csv)
-    sitrep_p = sitrep_p.replace("{report_week}", str(outbreak_week))
 
     print(f"Generating SITREP for week {outbreak_week}...")
     t0 = time.time()
     
-    # Use src.sitrep 
     from src.sitrep import generate_sitrep_medgemma
     sitrep = generate_sitrep_medgemma(week_anomalies, weekly_counts, outbreak_week)
     print(f"SITREP generated in {time.time()-t0:.1f}s")
@@ -340,12 +331,26 @@ if sim_path.exists() and not anomalies.empty:
 
 # %%
 # Save processed results
+# Compute hallucination stats
+hallucination_stats = {"total_checked": 0, "total_flagged": 0, "methods": set()}
+for r in results:
+    hc = r.get("hallucination_check") or {}
+    hallucination_stats["total_checked"] += hc.get("claims_checked", 0)
+    hallucination_stats["total_flagged"] += len(hc.get("flagged_claims", []))
+    if hc.get("method"):
+        hallucination_stats["methods"].add(hc["method"])
+
+hallucination_rate = (
+    hallucination_stats["total_flagged"] / max(hallucination_stats["total_checked"], 1)
+)
+
 output = {
     "model": MEDGEMMA_ID,
     "n_notes_processed": len(results),
     "avg_processing_time_s": round(avg_time, 2),
     "syndrome_accuracy": round(accuracy, 3),
     "evidence_grounding_rate": round(grounded_claims / max(total_claims, 1), 3),
+    "hallucination_rate": round(hallucination_rate, 3),
     "encounters": [r["encounter"] for r in results],
     "syndrome_tags": [r["syndrome_tag"] for r in results],
     "checklists": [r["checklist"] for r in results],
@@ -357,23 +362,63 @@ with open(out_path, "w", encoding="utf-8") as f:
 print(f"Results saved to {out_path} ✅")
 
 # %%
+# Final metrics summary table
+print("\n" + "=" * 60)
+print("📊 CHW COPILOT — PERFORMANCE METRICS SUMMARY")
 print("=" * 60)
+print(f"{'Metric':<35} {'Value':>15} {'Target':>10}")
+print("-" * 60)
+print(f"{'Notes processed':<35} {len(results):>15} {'':>10}")
+print(f"{'Avg processing time/note':<35} {avg_time:>14.1f}s {'':>10}")
+print(f"{'Syndrome tag accuracy':<35} {accuracy:>14.1%} {'≥80%':>10}")
+print(f"{'Evidence grounding rate':<35} {grounded_claims/max(total_claims,1):>14.1%} {'≥98%':>10}")
+print(f"{'Hallucination rate':<35} {hallucination_rate:>14.1%} {'≤2%':>10}")
+print(f"{'Evidence downgrades':<35} {total_downgrades:>15} {'':>10}")
+schema_pass_rate = sum(1 for r in results if r["validation"]["schema_valid"]) / len(results)
+print(f"{'Schema validation pass rate':<35} {schema_pass_rate:>14.1%} {'100%':>10}")
+print("-" * 60)
+
+# Per-syndrome F1
+from collections import Counter
+syndrome_tp = Counter()
+syndrome_fp = Counter()
+syndrome_fn = Counter()
+
+for r, gold in zip(results, demo_notes):
+    predicted = r["syndrome_tag"]["syndrome_tag"]
+    actual = gold.get("gold_syndrome_tag", "unclear")
+    if predicted == actual:
+        syndrome_tp[actual] += 1
+    else:
+        syndrome_fp[predicted] += 1
+        syndrome_fn[actual] += 1
+
+print(f"\n{'Syndrome':<30} {'Precision':>10} {'Recall':>10} {'F1':>10}")
+print("-" * 60)
+for tag in sorted(set(list(syndrome_tp.keys()) + list(syndrome_fp.keys()) + list(syndrome_fn.keys()))):
+    tp = syndrome_tp[tag]
+    fp = syndrome_fp[tag]
+    fn = syndrome_fn[tag]
+    precision = tp / max(tp + fp, 1)
+    recall = tp / max(tp + fn, 1)
+    f1 = 2 * precision * recall / max(precision + recall, 1e-9)
+    print(f"{tag:<30} {precision:>9.1%} {recall:>9.1%} {f1:>9.1%}")
+
+# %%
+print("\n" + "=" * 60)
 print("🎉 CHW Copilot — 6-Agent Agentic Pipeline Complete!")
 print("=" * 60)
-print(f"Notes processed:        {len(results)}")
-print(f"Syndrome accuracy:      {accuracy:.1%}")
-print(f"Evidence grounding:     {grounded_claims}/{total_claims} ({grounded_claims/max(total_claims,1):.1%})")
-print(f"Avg time per note:      {avg_time:.1f}s")
-print(f"Model: {MEDGEMMA_ID}")
+print(f"\nModel: {MEDGEMMA_ID}")
+print(f"Hallucination detection: Pythea/Strawberry (counterfactual evidence scrubbing)")
+print(f"Adaptation: Prompt engineering + agentic orchestration")
 print()
-print("Agent Pipeline Summary:")
+print("Agent Pipeline:")
 print("  1. Encounter Extractor  — MedGemma 1.5 (zero-shot JSON extraction)")
-print("  2. Evidence Grounder    — Deterministic substring check")
-print("  3. Hallucination Detect — Strawberry/Pythea budget_gap analysis")
-print("  4. Syndrome Tagger      — MedGemma 1.5 (classification)")
-print("  5. Checklist Generator   — MedGemma 1.5 (follow-up questions)")
-print("  6. Schema Validator      — JSON Schema validation")
+print("  2. Evidence Grounder    — Deterministic (fuzzy substring match)")
+print("  3. Hallucination Detect — Pythea/Strawberry (budget-gap analysis)")
+print("  4. Syndrome Tagger      — MedGemma 1.5 (syndromic classification)")
+print("  5. Checklist Generator  — MedGemma 1.5 (follow-up questions)")
+print("  6. Schema Validator     — JSON Schema (Draft 7) validation")
 print()
-print("Adaptation: Prompt engineering — zero-shot + JSON schema")
-print("Safety: Evidence grounding + Strawberry hallucination detection")
+print("Safety: Evidence grounding + Pythea hallucination detection")
 print("Privacy: Offline-first, no PII in prompts, no external API calls")

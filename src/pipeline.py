@@ -14,13 +14,16 @@ Also provides surveillance-level functions:
   - Generate weekly SITREP
 
 Adaptation methods: prompt engineering, agentic orchestration,
-evidence grounding enforcement, self-consistency hallucination detection.
+evidence grounding enforcement, Pythea/Strawberry hallucination detection.
 """
 import json
+import logging
 import time
 from typing import Dict, Any, List, Optional
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 from . import config
 from .validate import enforce_evidence, enforce_trigger_quotes, validation_report
@@ -155,31 +158,50 @@ def process_encounter(
             "output_summary": f"{len(downgrades)} claims downgraded for missing/invalid evidence",
         })
 
-        # ── Agent 3: Self-consistency hallucination detection ─────
+        # ── Agent 3: Pythea/Strawberry hallucination detection ─────
         hallucination_result = None
-        if run_hallucination_check and extractor == "medgemma": # Only check/loop if using model
+        if run_hallucination_check and extractor == "medgemma":
             t0 = time.time()
-            from .hallucination import verify_extraction_claims, verify_claims_offline
+            from .hallucination import (
+                PYTHEA_AVAILABLE,
+                verify_claims_pythea,
+                verify_claims_counterfactual,
+                verify_extraction_claims,
+                verify_claims_offline,
+            )
 
-            # Try model-based self-consistency first, fall back to deterministic
-            generate_fn = None
-            fallback_used = True
-            try:
-                from .models import generate_medgemma
-                generate_fn = generate_medgemma
-                fallback_used = False
-            except Exception:
-                pass
+            method = getattr(config, "HALLUCINATION_METHOD", "pythea_counterfactual")
+            fallback_used = False
 
-            if generate_fn:
-                if getattr(config, "HALLUCINATION_METHOD", "self_consistency") == "pythea_counterfactual":
-                    from .hallucination import verify_claims_counterfactual
-                    hallucination_result = verify_claims_counterfactual(encounter, note_text, generate_fn=generate_fn)
+            # Priority: Pythea API → counterfactual scrubbing → self-consistency → deterministic
+            if method == "pythea_budget_gap" and PYTHEA_AVAILABLE:
+                try:
+                    hallucination_result = verify_claims_pythea(encounter, note_text)
+                except Exception as e:
+                    logger.warning("Pythea API failed: %s — falling back", e)
+                    hallucination_result = None
+
+            if hallucination_result is None:
+                # Try model-based methods
+                generate_fn = None
+                try:
+                    from .models import generate_medgemma
+                    generate_fn = generate_medgemma
+                except Exception:
+                    pass
+
+                if generate_fn:
+                    if method == "pythea_counterfactual":
+                        hallucination_result = verify_claims_counterfactual(
+                            encounter, note_text, generate_fn=generate_fn
+                        )
+                    else:
+                        hallucination_result = verify_extraction_claims(
+                            encounter, note_text, generate_fn=generate_fn
+                        )
                 else:
-                    hallucination_result = verify_extraction_claims(encounter, note_text, generate_fn=generate_fn)
-            else:
-                hallucination_result = verify_claims_offline(encounter, note_text)
-                fallback_used = True
+                    hallucination_result = verify_claims_offline(encounter, note_text)
+                    fallback_used = True
 
             agent_trace.append({
                 "agent": "hallucination_check",
@@ -189,28 +211,29 @@ def process_encounter(
                 "output_summary": (
                     f"Checked {hallucination_result.get('claims_checked', 0)} claims, "
                     f"{len(hallucination_result.get('flagged_claims', []))} flagged"
-                    f" ({hallucination_result.get('method', 'self-consistency')})"
+                    f" ({hallucination_result.get('method', 'unknown')})"
                 ),
             })
-            
+
             # ── Self-Correction Decision ─────────────────────────
             if hallucination_result.get("flagged") and attempt < max_retries:
-                # Construct feedback for next attempt
                 flagged_items = hallucination_result.get("flagged_claims", [])
                 feedback_lines = []
                 for item in flagged_items:
-                    feedback_lines.append(f"- Your claim '{item['claim']}' was NOT supported by evidence '{item['evidence']}'. Reason: {item['reason']}")
-                
-                feedback = "The following claims were flagged as hallucinations/incorrect. Please REMOVE or CORRECT them:\n" + "\n".join(feedback_lines)
-                
-                # Loop back
+                    gap_info = f" (budget_gap: {item.get('budget_gap', '?')} bits)" if 'budget_gap' in item else ""
+                    feedback_lines.append(
+                        f"- Your claim '{item['claim']}' was NOT supported by evidence "
+                        f"'{item['evidence']}'. Reason: {item['reason']}{gap_info}"
+                    )
+                feedback = (
+                    "The following claims were flagged as hallucinations/incorrect. "
+                    "Please REMOVE or CORRECT them:\n" + "\n".join(feedback_lines)
+                )
                 attempt += 1
                 continue
             else:
-                # No hallucinations or max retries reached
                 break
         else:
-            # No hallucination check requested or using stub
             break
 
     # ── Agent 4: Tag syndrome ────────────────────────────────

@@ -8,38 +8,67 @@ MedGemma 1.5 uses AutoProcessor (not AutoTokenizer) and
 AutoModelForImageTextToText (not AutoModelForCausalLM).
 """
 import json
+import logging
 import re
 from typing import Dict, Any, Optional
 
 from . import config
+
+logger = logging.getLogger(__name__)
 
 # ── Globals for lazy-loaded model ────────────────────────────
 _medgemma_model = None
 _medgemma_processor = None
 
 
+def is_model_available() -> bool:
+    """Check if MedGemma model is loaded and available."""
+    return _medgemma_model is not None
+
+
 def _load_medgemma():
-    """Lazy-load the MedGemma 1.5 model and processor."""
+    """Lazy-load the MedGemma 1.5 model and processor.
+
+    Raises RuntimeError if the model cannot be loaded, with a descriptive
+    message about the likely cause.
+    """
     global _medgemma_model, _medgemma_processor
     if _medgemma_model is not None:
         return _medgemma_model, _medgemma_processor
 
-    from transformers import AutoModelForImageTextToText, AutoProcessor
-    import torch
+    try:
+        from transformers import AutoModelForImageTextToText, AutoProcessor
+        import torch
+    except ImportError as e:
+        raise RuntimeError(
+            f"Required packages not installed (transformers, torch): {e}. "
+            f"Install with: pip install transformers torch accelerate"
+        ) from e
 
-    print(f"Loading MedGemma model: {config.MEDGEMMA_MODEL}")
-    _medgemma_processor = AutoProcessor.from_pretrained(
-        config.MEDGEMMA_MODEL,
-        trust_remote_code=True,
-    )
-    _medgemma_model = AutoModelForImageTextToText.from_pretrained(
-        config.MEDGEMMA_MODEL,
-        trust_remote_code=True,
-        torch_dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
-        device_map=config.MEDGEMMA_DEVICE,
-    )
-    _medgemma_model.eval()
-    print(f"MedGemma loaded on {next(_medgemma_model.parameters()).device}")
+    logger.info("Loading MedGemma model: %s", config.MEDGEMMA_MODEL)
+    try:
+        _medgemma_processor = AutoProcessor.from_pretrained(
+            config.MEDGEMMA_MODEL,
+            trust_remote_code=True,
+        )
+        _medgemma_model = AutoModelForImageTextToText.from_pretrained(
+            config.MEDGEMMA_MODEL,
+            trust_remote_code=True,
+            torch_dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
+            device_map=config.MEDGEMMA_DEVICE,
+        )
+        _medgemma_model.eval()
+        device = next(_medgemma_model.parameters()).device
+        logger.info("MedGemma loaded successfully on %s", device)
+    except Exception as e:
+        _medgemma_model = None
+        _medgemma_processor = None
+        raise RuntimeError(
+            f"Failed to load MedGemma model '{config.MEDGEMMA_MODEL}': {e}. "
+            f"Ensure you have GPU access, sufficient VRAM (~8GB), "
+            f"and a valid HuggingFace token for gated model access."
+        ) from e
+
     return _medgemma_model, _medgemma_processor
 
 

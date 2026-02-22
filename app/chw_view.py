@@ -174,9 +174,35 @@ def render_chw_view():
                     st.session_state.show_custom = True
 
         if st.session_state.get("show_custom") and st.session_state.get("custom_note"):
-            st.info("💡 In live mode with a GPU, this would run the full MedGemma pipeline. Using demo data for illustration.")
-            selected_result = DEMO_RESULTS[0]
-            selected_note = st.session_state.custom_note
+            # Run the real pipeline with deterministic fallbacks (no GPU needed)
+            if "custom_result" not in st.session_state:
+                import sys
+                from pathlib import Path
+                # Add project root to path for src imports
+                project_root = str(Path(__file__).parent.parent)
+                if project_root not in sys.path:
+                    sys.path.insert(0, project_root)
+                try:
+                    from src.pipeline import process_encounter
+                    with st.spinner("🔬 Running 6-agent pipeline (deterministic mode)..."):
+                        st.session_state.custom_result = process_encounter(
+                            st.session_state.custom_note,
+                            encounter_id="custom_001",
+                            location_id="custom",
+                            week_id=0,
+                            extractor="stub",
+                            use_model_tagger=False,
+                            use_model_checklist=False,
+                            run_hallucination_check=False,
+                        )
+                except Exception as e:
+                    st.error(f"Pipeline error: {e}")
+                    st.session_state.custom_result = None
+
+            if st.session_state.get("custom_result"):
+                st.success("✅ Pipeline complete — running in offline mode (deterministic fallbacks). See Kaggle notebook for full MedGemma results.")
+                selected_result = st.session_state.custom_result
+                selected_note = st.session_state.custom_note
 
     with tab_voice:
         st.markdown("Upload an audio recording of a CHW field visit.")
