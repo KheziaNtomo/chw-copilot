@@ -1,216 +1,287 @@
-/* CHW Copilot — Premium Dark Medical Theme */
+/* CHW Copilot — Clinical Light Theme (Pulmify-inspired) */
 
-/* ── Root Variables ─────────────────────────────────────────── */
+/* ── Google Fonts ─────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ── Root Variables ───────────────────────────────────── */
 :root {
-    --bg-primary: #0a0e1a;
-    --bg-secondary: #111827;
-    --bg-card: rgba(17, 24, 39, 0.8);
-    --bg-glass: rgba(30, 41, 59, 0.6);
+    --bg: #f7f7f4;
+    --bg-card: #ffffff;
+    --bg-sidebar: #1e2a1e;
 
-    --accent-teal: #14b8a6;
-    --accent-teal-dim: rgba(20, 184, 166, 0.15);
-    --accent-blue: #3b82f6;
-    --accent-blue-dim: rgba(59, 130, 246, 0.15);
+    --olive-1: #2d3d1f;
+    /* deep olive — headings */
+    --olive-2: #4a6032;
+    /* mid olive — accents */
+    --olive-3: #7a9e5a;
+    /* light olive — secondary accent */
+    --olive-pale: #e8f0e0;
+    /* very light olive — card tint */
 
-    --text-primary: #f1f5f9;
-    --text-secondary: #94a3b8;
-    --text-muted: #64748b;
+    --alert: #c0392b;
+    --alert-bg: rgba(192, 57, 43, 0.07);
+    --warn: #b5770d;
+    --warn-bg: rgba(181, 119, 13, 0.08);
+    --ok: #2e7d32;
+    --ok-bg: rgba(46, 125, 50, 0.07);
 
-    --success: #22c55e;
-    --success-bg: rgba(34, 197, 94, 0.12);
-    --warning: #f59e0b;
-    --warning-bg: rgba(245, 158, 11, 0.12);
-    --danger: #ef4444;
-    --danger-bg: rgba(239, 68, 68, 0.12);
+    --text-primary: #1a2214;
+    --text-secondary: #4a5a3a;
+    --text-muted: #8a9a7a;
 
-    --border: rgba(148, 163, 184, 0.1);
-    --radius: 12px;
-    --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+    --border: #dde5d4;
+    --radius: 10px;
+    --shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.10);
 }
 
-/* ── Global ────────────────────────────────────────────────── */
+/* ── Global ───────────────────────────────────────────── */
+html,
+body,
+[class*="css"] {
+    font-family: 'Inter', sans-serif !important;
+}
+
 .stApp {
-    background: linear-gradient(135deg, var(--bg-primary) 0%, #0f172a 50%, #1a1a2e 100%);
+    background-color: var(--bg) !important;
 }
 
-/* ── Sidebar ───────────────────────────────────────────────── */
+/* ── Sidebar ──────────────────────────────────────────── */
 [data-testid="stSidebar"] {
-    background: var(--bg-secondary) !important;
-    border-right: 1px solid var(--border);
+    background: var(--bg-sidebar) !important;
+    border-right: none !important;
 }
 
-[data-testid="stSidebar"] .stMarkdown h1,
-[data-testid="stSidebar"] .stMarkdown h2,
-[data-testid="stSidebar"] .stMarkdown h3 {
-    color: var(--accent-teal) !important;
+[data-testid="stSidebar"] * {
+    color: #c8d8b8 !important;
 }
 
-/* ── Cards ─────────────────────────────────────────────────── */
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3 {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
+[data-testid="stSidebar"] hr {
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Sidebar radio buttons */
+[data-testid="stSidebar"] label {
+    color: #c8d8b8 !important;
+}
+
+/* ── Section Headers ──────────────────────────────────── */
+h1,
+h2,
+h3 {
+    color: var(--olive-1) !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.02em;
+}
+
+h1 {
+    font-size: 2.2rem !important;
+    margin-bottom: 0.25rem !important;
+}
+
+h2 {
+    font-size: 1.5rem !important;
+    border-bottom: 2px solid var(--olive-pale);
+    padding-bottom: 0.5rem;
+}
+
+h3 {
+    font-size: 1.1rem !important;
+    color: var(--olive-2) !important;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+/* ── Cards ────────────────────────────────────────────── */
 .glass-card {
-    background: var(--bg-glass);
-    backdrop-filter: blur(12px);
+    background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 1.5rem;
+    padding: 1.25rem 1.5rem;
     margin-bottom: 1rem;
     box-shadow: var(--shadow);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.glass-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-}
-
-/* ── Evidence Highlights ───────────────────────────────────── */
-.evidence-grounded {
-    background: var(--success-bg);
-    border-left: 3px solid var(--success);
-    padding: 0.5rem 1rem;
-    border-radius: 0 8px 8px 0;
-    margin: 0.25rem 0;
-    font-family: 'Inter', sans-serif;
-}
-
-.evidence-downgraded {
-    background: var(--danger-bg);
-    border-left: 3px solid var(--danger);
-    padding: 0.5rem 1rem;
-    border-radius: 0 8px 8px 0;
-    margin: 0.25rem 0;
-    font-family: 'Inter', sans-serif;
-}
-
-.evidence-flagged {
-    background: var(--warning-bg);
-    border-left: 3px solid var(--warning);
-    padding: 0.5rem 1rem;
-    border-radius: 0 8px 8px 0;
-    margin: 0.25rem 0;
-}
-
-.evidence-quote {
-    color: var(--accent-teal);
-    font-style: italic;
-    font-weight: 500;
-}
-
-/* ── Badges ────────────────────────────────────────────────── */
-.badge {
-    display: inline-block;
-    padding: 0.25rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.badge-success { background: var(--success-bg); color: var(--success); border: 1px solid var(--success); }
-.badge-warning { background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning); }
-.badge-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger); }
-.badge-info { background: var(--accent-blue-dim); color: var(--accent-blue); border: 1px solid var(--accent-blue); }
-.badge-teal { background: var(--accent-teal-dim); color: var(--accent-teal); border: 1px solid var(--accent-teal); }
-
-/* ── Pipeline Trace ────────────────────────────────────────── */
-.trace-step {
-    display: flex;
-    align-items: center;
-    padding: 0.75rem 1rem;
-    background: var(--bg-card);
-    border-radius: 8px;
-    margin: 0.5rem 0;
-    border-left: 3px solid var(--accent-teal);
-    transition: background 0.2s;
-}
-
-.trace-step:hover {
-    background: var(--bg-glass);
-}
-
-.trace-step.fallback {
-    border-left-color: var(--warning);
-}
-
-.trace-step.flagged {
-    border-left-color: var(--danger);
-}
-
-/* ── Anomaly Cards ─────────────────────────────────────────── */
-.anomaly-card {
-    background: var(--danger-bg);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    border-radius: var(--radius);
-    padding: 1.25rem;
-    margin-bottom: 1rem;
-}
-
-.anomaly-card .metric {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--danger);
-}
-
-/* ── Priority Colors ───────────────────────────────────────── */
-.priority-high { color: var(--danger); }
-.priority-medium { color: var(--warning); }
-.priority-low { color: var(--accent-blue); }
-
-/* ── Metric Cards ──────────────────────────────────────────── */
+/* ── Metric Cards ─────────────────────────────────────── */
 .metric-card {
-    background: var(--bg-glass);
+    background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 1.25rem;
-    text-align: center;
+    padding: 1.25rem 1.5rem;
+    box-shadow: var(--shadow);
+    position: relative;
+}
+
+.metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--olive-2);
+    border-radius: var(--radius) 0 0 var(--radius);
 }
 
 .metric-card .value {
-    font-size: 2.5rem;
-    font-weight: 700;
-    background: linear-gradient(135deg, var(--accent-teal), var(--accent-blue));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    font-size: 3rem;
+    font-weight: 300;
+    color: var(--olive-1);
+    line-height: 1;
+    letter-spacing: -0.03em;
+}
+
+.metric-card .value.alert {
+    color: var(--alert) !important;
+}
+
+.metric-card .value.ok {
+    color: var(--ok) !important;
 }
 
 .metric-card .label {
-    color: var(--text-secondary);
-    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-top: 0.25rem;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    margin-top: 0.35rem;
 }
 
-/* ── Highlighted Note Text ─────────────────────────────────── */
+/* ── Anomaly Cards ────────────────────────────────────── */
+.anomaly-card {
+    background: var(--alert-bg);
+    border: 1px solid rgba(192, 57, 43, 0.2);
+    border-left: 4px solid var(--alert);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.75rem;
+}
+
+.anomaly-card .metric {
+    font-size: 2.4rem;
+    font-weight: 300;
+    color: var(--alert);
+    letter-spacing: -0.03em;
+    line-height: 1;
+}
+
+/* ── Evidence Highlights ──────────────────────────────── */
+.evidence-grounded {
+    background: var(--ok-bg);
+    border-left: 3px solid var(--ok);
+    padding: 0.4rem 0.9rem;
+    border-radius: 0 6px 6px 0;
+    margin: 0.2rem 0;
+    font-size: 0.9rem;
+}
+
+.evidence-downgraded {
+    background: var(--alert-bg);
+    border-left: 3px solid var(--alert);
+    padding: 0.4rem 0.9rem;
+    border-radius: 0 6px 6px 0;
+    margin: 0.2rem 0;
+    font-size: 0.9rem;
+}
+
+.evidence-quote {
+    color: var(--olive-2);
+    font-style: italic;
+    font-weight: 600;
+}
+
+/* ── Note text ────────────────────────────────────────── */
+.note-text {
+    font-size: 0.95rem;
+    line-height: 1.9;
+    color: var(--text-primary);
+    background: var(--olive-pale);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--border);
+}
+
 .note-text mark {
-    background: var(--accent-teal-dim);
-    color: var(--accent-teal);
+    background: rgba(122, 158, 90, 0.25);
+    color: var(--olive-1);
     padding: 0.1em 0.3em;
     border-radius: 3px;
-    font-weight: 500;
+    font-weight: 600;
 }
 
-.note-text mark.flagged {
-    background: var(--danger-bg);
-    color: var(--danger);
+/* ── Syndrome Badge ───────────────────────────────────── */
+.syndrome-badge {
+    display: inline-block;
+    padding: 0.35rem 1rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    background: var(--olive-pale);
+    color: var(--olive-1);
+    border: 1px solid var(--olive-3);
 }
 
-/* ── Streamlit Overrides ───────────────────────────────────── */
+/* ── Recommendation Items ─────────────────────────────── */
+.rec-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--olive-2);
+    padding: 0.6rem 1rem;
+    margin-bottom: 0.4rem;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+.rec-item.urgent {
+    border-left-color: var(--alert);
+    background: var(--alert-bg);
+}
+
+/* ── Pipeline Trace ───────────────────────────────────── */
+.trace-step {
+    display: flex;
+    align-items: center;
+    padding: 0.6rem 1rem;
+    background: var(--bg-card);
+    border-radius: 6px;
+    margin: 0.3rem 0;
+    border-left: 3px solid var(--olive-3);
+    font-size: 0.88rem;
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+}
+
+/* ── Streamlit Overrides ──────────────────────────────── */
 .stTabs [data-baseweb="tab-list"] {
     gap: 0;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 2px solid var(--border);
+    background: transparent;
 }
 
 .stTabs [data-baseweb="tab"] {
-    color: var(--text-secondary) !important;
+    color: var(--text-muted) !important;
+    font-size: 0.88rem;
+    font-weight: 500;
+    padding: 0.6rem 1.25rem;
     border-bottom: 2px solid transparent;
-    padding: 0.75rem 1.5rem;
-    transition: all 0.2s;
 }
 
 .stTabs [aria-selected="true"] {
-    color: var(--accent-teal) !important;
-    border-bottom-color: var(--accent-teal) !important;
+    color: var(--olive-1) !important;
+    border-bottom: 2px solid var(--olive-2) !important;
+    font-weight: 700 !important;
 }
 
 .stExpander {
@@ -219,18 +290,22 @@
     background: var(--bg-card) !important;
 }
 
-/* ── Animations ────────────────────────────────────────────── */
+/* ── Animations ───────────────────────────────────────── */
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-.glass-card, .trace-step, .anomaly-card {
-    animation: fadeIn 0.4s ease-out;
-}
-
-/* ── Responsive ────────────────────────────────────────────── */
-@media (max-width: 768px) {
-    .glass-card { padding: 1rem; }
-    .metric-card .value { font-size: 1.8rem; }
+.glass-card,
+.metric-card,
+.anomaly-card,
+.trace-step {
+    animation: fadeIn 0.3s ease-out;
 }

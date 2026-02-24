@@ -1,184 +1,233 @@
-"""District View — Surveillance dashboard for district health officers.
-
-Features:
-- Weekly syndrome counts dashboard (Plotly grouped bar chart)
-- Anomaly alert cards with surge metrics
-- SITREP viewer (narrative + structured data)
-- CSV export for IDSR-compatible formats
-- SITREP download as JSON
-"""
+"""District View — Surveillance dashboard for district health officers."""
 import io
 import json
 import streamlit as st
 import pandas as pd
 
 try:
-    import plotly.express as px
     import plotly.graph_objects as go
     PLOTLY_AVAILABLE = True
 except ImportError:
     PLOTLY_AVAILABLE = False
+
+SYNDROME_DISPLAY = {
+    "respiratory_fever":   "Respiratory Fever Syndrome",
+    "acute_watery_diarrhea": "Acute Watery Diarrhea",
+    "other":    "Other Syndromes",
+    "unclear":  "Unclear Presentation",
+}
+
+SYNDROME_COLORS = {
+    "respiratory_fever":     "#4a6032",
+    "acute_watery_diarrhea": "#2e7d8a",
+    "other":                 "#8a7a52",
+    "unclear":               "#9a9a88",
+}
 
 
 def render_district_view():
     """Main district surveillance dashboard renderer."""
     from demo_data import DEMO_SURVEILLANCE, DEMO_LOCATIONS
 
-    st.markdown("## 📊 District Surveillance Dashboard")
-    st.markdown("Weekly syndromic surveillance with anomaly detection and SITREP generation.")
-
     surv = DEMO_SURVEILLANCE
 
-    # ── Summary Metrics ──────────────────────────────────────
+    # ── Page header ──────────────────────────────────────────────
+    st.markdown("""
+    <div style="margin-bottom:1.5rem;">
+        <h1 style="margin:0;font-size:2rem;font-weight:700;color:#1e2a1e;">
+            District Surveillance
+        </h1>
+        <p style="color:#8a9a7a;margin:0.25rem 0 0 0;font-size:0.95rem;font-weight:400;">
+            Syndromic surveillance · Anomaly detection · Situation reporting
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
     weekly_data = pd.DataFrame(surv["weekly_counts"])
-    latest_week = weekly_data["week_id"].max()
-    latest = weekly_data[weekly_data["week_id"] == latest_week]
-    total_cases = int(latest["count"].sum())
+    # Map location IDs to names
+    weekly_data["location_name"] = weekly_data["location_id"].map(
+        lambda lid: DEMO_LOCATIONS.get(lid, {}).get("name", lid)
+    )
+    weekly_data["syndrome_display"] = weekly_data["syndrome_tag"].map(
+        lambda s: SYNDROME_DISPLAY.get(s, s)
+    )
+
+    latest_week  = int(weekly_data["week_id"].max())
+    latest       = weekly_data[weekly_data["week_id"] == latest_week]
+    total_cases  = int(latest["count"].sum())
     num_anomalies = len(surv["anomalies"])
     num_locations = latest["location_id"].nunique()
+    weeks_tracked = weekly_data["week_id"].nunique()
 
+    # ── Summary Metrics ──────────────────────────────────────────
     col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.markdown(
-            '<div class="metric-card">'
-            f'<div class="value">{total_cases}</div>'
-            f'<div class="label">Cases (Week {latest_week})</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-    with col2:
-        st.markdown(
-            '<div class="metric-card">'
-            f'<div class="value" style="background:linear-gradient(135deg,#ef4444,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">{num_anomalies}</div>'
-            '<div class="label">Active Alerts</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-    with col3:
-        st.markdown(
-            '<div class="metric-card">'
-            f'<div class="value">{num_locations}</div>'
-            '<div class="label">Locations</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-    with col4:
-        weeks_tracked = weekly_data["week_id"].nunique()
-        st.markdown(
-            '<div class="metric-card">'
-            f'<div class="value">{weeks_tracked}</div>'
-            '<div class="label">Weeks Tracked</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
 
-    st.markdown("---")
-
-    # ── Anomaly Alerts ───────────────────────────────────────
-    if surv["anomalies"]:
-        st.markdown("### 🚨 Active Anomaly Alerts")
-        for anomaly in surv["anomalies"]:
-            loc_name = DEMO_LOCATIONS.get(anomaly["location_id"], {}).get("name", anomaly["location_id"])
+    metrics = [
+        (col1, str(total_cases),  f"Cases · Week {latest_week}", ""),
+        (col2, str(num_anomalies), "Active Alerts",  "alert" if num_anomalies > 0 else "ok"),
+        (col3, str(num_locations), "Locations Reporting", ""),
+        (col4, str(weeks_tracked), "Weeks Tracked", ""),
+    ]
+    for col, val, label, cls in metrics:
+        with col:
+            value_cls = f' class="value {cls}"' if cls else ' class="value"'
             st.markdown(
-                f'<div class="anomaly-card">'
-                f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                f'<div>'
-                f'<div class="metric">{anomaly["current_count"]} cases</div>'
-                f'<strong style="color:#f1f5f9">{anomaly["syndrome_tag"].replace("_"," ").title()}</strong>'
-                f' at <strong style="color:#14b8a6">{loc_name}</strong>'
-                f'</div>'
-                f'<div style="text-align:right;">'
-                f'<div style="color:#ef4444;font-size:1.8rem;font-weight:700;">{anomaly["ratio"]:.1f}x</div>'
-                f'<small style="color:#94a3b8">above baseline ({anomaly["baseline_mean"]:.1f} avg)</small>'
-                f'</div>'
-                f'</div>'
-                f'<div style="margin-top:0.75rem;color:#f1f5f9;font-size:0.9rem">{anomaly["message"]}</div>'
+                f'<div class="metric-card">'
+                f'<div{value_cls}>{val}</div>'
+                f'<div class="label">{label}</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
-    # ── Trends Chart ─────────────────────────────────────────
-    st.markdown("### 📈 Weekly Syndrome Trends")
+    st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
+
+    # ── Anomaly Alerts ───────────────────────────────────────────
+    if surv["anomalies"]:
+        st.markdown(
+            '<p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;'
+            'font-weight:700;color:#8a9a7a;margin-bottom:0.5rem;">Active Alerts</p>',
+            unsafe_allow_html=True,
+        )
+        for anomaly in surv["anomalies"]:
+            loc_name = DEMO_LOCATIONS.get(anomaly["location_id"], {}).get("name", anomaly["location_id"])
+            syn_name = SYNDROME_DISPLAY.get(anomaly["syndrome_tag"], anomaly["syndrome_tag"])
+            st.markdown(
+                f'<div class="anomaly-card">'
+                f'<div style="display:flex;justify-content:space-between;align-items:flex-start;">'
+                f'<div>'
+                f'<div class="metric">{anomaly["current_count"]}</div>'
+                f'<div style="font-weight:600;color:#1a2214;margin-top:0.25rem;">{syn_name}</div>'
+                f'<div style="font-size:0.85rem;color:#8a9a7a;margin-top:0.15rem;">{loc_name}</div>'
+                f'</div>'
+                f'<div style="text-align:right;padding-top:0.25rem;">'
+                f'<div style="font-size:1.8rem;font-weight:300;color:#c0392b;letter-spacing:-0.02em;">'
+                f'{anomaly["ratio"]:.1f}×</div>'
+                f'<div style="font-size:0.75rem;color:#8a9a7a;">above baseline ({anomaly["baseline_mean"]:.1f} avg)</div>'
+                f'</div>'
+                f'</div>'
+                f'<div style="margin-top:0.6rem;font-size:0.88rem;color:#4a3030;border-top:1px solid rgba(192,57,43,0.15);padding-top:0.5rem;">'
+                f'{anomaly["message"]}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+    # ── Syndrome Trends Line Chart ───────────────────────────────
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+    st.markdown(
+        '<p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;'
+        'font-weight:700;color:#8a9a7a;margin-bottom:0.5rem;">Weekly Syndrome Trends</p>',
+        unsafe_allow_html=True,
+    )
 
     if PLOTLY_AVAILABLE:
-        fig = px.bar(
-            weekly_data,
-            x="week_id",
-            y="count",
-            color="syndrome_tag",
-            barmode="group",
-            facet_col="location_id",
-            labels={"week_id": "Epi Week", "count": "Cases", "syndrome_tag": "Syndrome"},
-            color_discrete_map={
-                "respiratory_fever": "#14b8a6",
-                "acute_watery_diarrhea": "#3b82f6",
-                "other": "#8b5cf6",
-                "unclear": "#64748b",
-            },
+        # Aggregate across all locations for overview line chart
+        agg = (
+            weekly_data
+            .groupby(["week_id", "syndrome_tag", "syndrome_display"])["count"]
+            .sum()
+            .reset_index()
         )
+
+        fig = go.Figure()
+        for syndrome_tag in agg["syndrome_tag"].unique():
+            grp = agg[agg["syndrome_tag"] == syndrome_tag].sort_values("week_id")
+            color = SYNDROME_COLORS.get(syndrome_tag, "#888")
+            label = SYNDROME_DISPLAY.get(syndrome_tag, syndrome_tag)
+            fig.add_trace(go.Scatter(
+                x=grp["week_id"],
+                y=grp["count"],
+                mode="lines+markers",
+                name=label,
+                line=dict(color=color, width=2.5),
+                marker=dict(size=7, color=color, line=dict(color="white", width=1.5)),
+                hovertemplate=f"<b>{label}</b><br>Week %{{x}} : %{{y}} cases<extra></extra>",
+            ))
+
         fig.update_layout(
             paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font_color="#94a3b8",
-            xaxis=dict(gridcolor="rgba(148,163,184,0.1)"),
-            yaxis=dict(gridcolor="rgba(148,163,184,0.1)"),
-            legend=dict(bgcolor="rgba(0,0,0,0)"),
-            height=400,
+            plot_bgcolor="rgba(247,247,244,0)",
+            font=dict(family="Inter", color="#4a5a3a", size=12),
+            xaxis=dict(
+                title="Epidemiological Week",
+                gridcolor="rgba(0,0,0,0.05)",
+                linecolor="#dde5d4",
+                tickmode="linear",
+            ),
+            yaxis=dict(
+                title="Case Count",
+                gridcolor="rgba(0,0,0,0.05)",
+                linecolor="#dde5d4",
+                rangemode="tozero",
+            ),
+            legend=dict(
+                bgcolor="rgba(255,255,255,0.8)",
+                bordercolor="#dde5d4",
+                borderwidth=1,
+                orientation="h",
+                y=-0.2,
+            ),
+            margin=dict(l=10, r=10, t=10, b=40),
+            height=340,
         )
-        fig.update_traces(marker_line_width=0)
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.dataframe(weekly_data, use_container_width=True)
+        fig.update_xaxes(showgrid=True, gridwidth=1)
+        fig.update_yaxes(showgrid=True, gridwidth=1)
 
-    # ── SITREP ───────────────────────────────────────────────
-    st.markdown("---")
-    st.markdown("### 📋 Weekly SITREP")
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    else:
+        st.dataframe(weekly_data[["week_id","location_name","syndrome_display","count"]], use_container_width=True)
+
+    # ── SITREP ───────────────────────────────────────────────────
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+    st.markdown(
+        '<p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;'
+        'font-weight:700;color:#8a9a7a;margin-bottom:0.5rem;">Weekly Situation Report</p>',
+        unsafe_allow_html=True,
+    )
 
     sitrep = surv["sitrep"]
     st.markdown(
-        f'<div class="glass-card" style="white-space:pre-wrap;line-height:1.8;">'
-        f'{sitrep["narrative"]}'
+        f'<div class="glass-card" style="line-height:1.9;font-size:0.92rem;color:#1a2214;">'
+        f'{sitrep["narrative"].replace(chr(10), "<br>")}'
         f'</div>',
         unsafe_allow_html=True,
     )
 
     if sitrep.get("alerts"):
-        st.markdown("**Structured Alerts:**")
         for alert in sitrep["alerts"]:
-            sev_color = {"high": "#ef4444", "medium": "#f59e0b", "low": "#3b82f6"}.get(alert["severity"], "#94a3b8")
+            sev_color = {"high": "#c0392b", "medium": "#b5770d", "low": "#2e7d32"}.get(alert["severity"], "#888")
             loc_name = DEMO_LOCATIONS.get(alert["location"], {}).get("name", alert["location"])
+            syn_name = SYNDROME_DISPLAY.get(alert["syndrome"], alert["syndrome"])
             st.markdown(
-                f'<div style="display:flex;align-items:center;gap:1rem;padding:0.5rem 1rem;'
-                f'background:rgba(0,0,0,0.2);border-radius:8px;border-left:3px solid {sev_color};margin:0.5rem 0;">'
-                f'<span style="color:{sev_color};font-weight:700;text-transform:uppercase;">{alert["severity"]}</span>'
-                f'<span style="color:#f1f5f9">{loc_name} — {alert["syndrome"].replace("_"," ").title()}</span>'
-                f'<span style="color:#94a3b8;margin-left:auto;">{alert["message"]}</span>'
+                f'<div style="display:flex;align-items:center;gap:1rem;padding:0.6rem 1rem;'
+                f'background:#fff;border:1px solid #dde5d4;border-left:4px solid {sev_color};'
+                f'border-radius:0 8px 8px 0;margin:0.4rem 0;">'
+                f'<span style="color:{sev_color};font-weight:700;font-size:0.7rem;'
+                f'text-transform:uppercase;letter-spacing:0.08em;min-width:4rem;">{alert["severity"]}</span>'
+                f'<span style="color:#1a2214;font-weight:600;">{loc_name}</span>'
+                f'<span style="color:#8a9a7a;">·</span>'
+                f'<span style="color:#4a5a3a;">{syn_name}</span>'
+                f'<span style="color:#8a9a7a;margin-left:auto;font-size:0.85rem;">{alert["message"]}</span>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
 
-    # ── Export Section ────────────────────────────────────────
-    st.markdown("---")
-    st.markdown("### 📥 Export Data")
-
-    col_csv, col_sitrep = st.columns(2)
-
+    # ── Export ───────────────────────────────────────────────────
+    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
+    col_csv, col_sitrep, _ = st.columns([1, 1, 2])
     with col_csv:
-        csv_buffer = io.StringIO()
-        weekly_data.to_csv(csv_buffer, index=False)
+        csv_buf = io.StringIO()
+        weekly_data[["week_id","location_name","syndrome_display","count"]].to_csv(csv_buf, index=False)
         st.download_button(
-            "📊 Download Weekly Counts (CSV)",
-            csv_buffer.getvalue(),
+            "Download Counts (CSV)",
+            csv_buf.getvalue(),
             file_name=f"chw_copilot_week{latest_week}_counts.csv",
             mime="text/csv",
             use_container_width=True,
         )
-
     with col_sitrep:
-        sitrep_json = json.dumps(sitrep, indent=2)
         st.download_button(
-            "📋 Download SITREP (JSON)",
-            sitrep_json,
+            "Download SITREP (JSON)",
+            json.dumps(sitrep, indent=2),
             file_name=f"chw_copilot_week{latest_week}_sitrep.json",
             mime="application/json",
             use_container_width=True,

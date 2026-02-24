@@ -151,24 +151,30 @@ def render_chw_view():
     """Main CHW view renderer."""
     from demo_data import DEMO_NOTES, DEMO_RESULTS, FAILURE_MODE
 
-    st.markdown("## 👩‍⚕️ Community Health Worker View")
-    st.markdown("Enter a field note or select a demo case to process through the agentic pipeline.")
+    st.markdown("""
+    <div style="margin-bottom:1.5rem;">
+        <h1 style="margin:0;font-size:2rem;font-weight:700;color:#1e2a1e;">CHW Field View</h1>
+        <p style="color:#8a9a7a;margin:0.25rem 0 0 0;font-size:0.95rem;font-weight:400;">
+            Enter a field note or select a demo case to process through the pipeline.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
     # ── Input Section ────────────────────────────────────────
-    tab_text, tab_voice, tab_demo = st.tabs(["📝 Text Note", "🎤 Voice Note", "📋 Demo Cases"])
+    tab_text, tab_demo = st.tabs(["Text Note", "Demo Cases"])
 
     selected_result = None
     selected_note = None
 
     with tab_text:
         note_input = st.text_area(
-            "CHW Field Note",
-            height=120,
-            placeholder="Enter a CHW field note... e.g., 'Child 3yo M fever 3 days cough bad rash on chest no diarrhea'",
+            "Field Note",
+            height=110,
+            placeholder="e.g. Child 3yo M fever 3 days cough bad rash on chest no diarrhea mother says not eating gave ORS referred health center",
         )
-        col1, col2 = st.columns([1, 4])
+        col1, col2 = st.columns([1, 5])
         with col1:
-            if st.button("🔬 Process", type="primary", use_container_width=True):
+            if st.button("Process", type="primary", use_container_width=True):
                 if note_input.strip():
                     st.session_state.custom_note = note_input
                     st.session_state.show_custom = True
@@ -218,14 +224,13 @@ def render_chw_view():
         demo_cols = st.columns(len(DEMO_NOTES) + 1)
         for i, note in enumerate(DEMO_NOTES):
             with demo_cols[i]:
-                if st.button(f"📄 {note['title']}", key=f"demo_{i}", use_container_width=True):
+                if st.button(note['title'], key=f"demo_{i}", use_container_width=True):
                     selected_result = DEMO_RESULTS[i]
                     selected_note = note["note_text"]
                     st.session_state.selected_demo = i
 
-        # Failure mode button
         with demo_cols[-1]:
-            if st.button("🚨 Failure Mode", key="demo_fail", use_container_width=True):
+            if st.button("Failure Mode", key="demo_fail", use_container_width=True):
                 st.session_state.show_failure = True
 
         # Check session state for persistent selection
@@ -304,15 +309,23 @@ def render_chw_view():
     col_note, col_encounter = st.columns(2)
 
     with col_note:
-        st.markdown("### 📄 Raw Note")
+        st.markdown(
+            '<p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;'
+            'font-weight:700;color:#8a9a7a;margin-bottom:0.5rem;">Field Note</p>',
+            unsafe_allow_html=True,
+        )
         highlighted = highlight_evidence_in_note(selected_note, encounter, hallucination)
         st.markdown(
-            f'<div class="glass-card note-text" style="line-height:1.8;font-size:1.05em">{highlighted}</div>',
+            f'<div class="note-text" style="line-height:1.85;font-size:0.95em">{highlighted}</div>',
             unsafe_allow_html=True,
         )
 
     with col_encounter:
-        st.markdown("### 🏥 Structured Encounter")
+        st.markdown(
+            '<p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;'
+            'font-weight:700;color:#8a9a7a;margin-bottom:0.5rem;">Structured Encounter</p>',
+            unsafe_allow_html=True,
+        )
         # Patient info
         patient = encounter.get("patient", {})
         age = patient.get("age_years", "?")
@@ -355,11 +368,15 @@ def render_chw_view():
                     )
 
     # ── Syndrome Tag ─────────────────────────────────────────
-    st.markdown("---")
+    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
     col_syn, col_check = st.columns(2)
 
     with col_syn:
-        st.markdown("### 🏷️ Syndrome Classification")
+        st.markdown(
+            '<p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;'
+            'font-weight:700;color:#8a9a7a;margin-bottom:0.5rem;">Syndrome Classification</p>',
+            unsafe_allow_html=True,
+        )
         tag = syndrome.get("syndrome_tag", "?")
         conf = syndrome.get("confidence", "?")
         conf_color = {"high": "#22c55e", "medium": "#f59e0b", "low": "#ef4444"}.get(conf, "#94a3b8")
@@ -398,7 +415,11 @@ def render_chw_view():
 
     # ── ICCM Recommendations ─────────────────────────────────
     with col_check:
-        st.markdown("### 📋 ICCM Recommendations")
+        st.markdown(
+            '<p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;'
+            'font-weight:700;color:#8a9a7a;margin-bottom:0.5rem;">ICCM Recommendations</p>',
+            unsafe_allow_html=True,
+        )
         if recommendations:
             for rec in recommendations:
                 is_urgent = rec.startswith("🚨")
@@ -415,6 +436,6 @@ def render_chw_view():
             st.info("No recommendations generated.")
 
     # ── Pipeline Trace ───────────────────────────────────────
-    st.markdown("---")
-    with st.expander("🔍 Pipeline Trace — Agent-by-Agent Execution", expanded=False):
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+    with st.expander("Pipeline Trace — Agent-by-Agent Execution", expanded=False):
         render_pipeline_trace(selected_result.get("agent_trace", []))

@@ -278,23 +278,39 @@ DEMO_SURVEILLANCE = {
         "week_id": 5,
         "generated_by": "template",
         "narrative": (
-            "Week 5 Situation Report — CHW Copilot Syndromic Surveillance\n\n"
-            "ALERT: Respiratory fever cases at loc_01 have surged to 12, "
-            "3.2x above the 4-week baseline mean of 3.75. This exceeds "
-            "the alert threshold and warrants immediate investigation.\n\n"
-            "Acute watery diarrhea remains within normal range across all locations.\n\n"
-            "Recommended actions:\n"
-            "1. Deploy additional CHWs to loc_01 for active case finding\n"
-            "2. Ensure respiratory infection treatment supplies at loc_01 health center\n"
-            "3. Investigate potential common exposure source\n"
-            "4. Continue monitoring loc_02 for spillover"
+            "WEEK 5 SITUATION REPORT — CHW Copilot Syndromic Surveillance\n\n"
+
+            "ALERT: Respiratory fever syndrome cases at Kibera Health Post have surged to 12 this week, "
+            "representing a 3.2-fold increase above the 4-week baseline mean of 3.75 cases. "
+            "This crosses the alert threshold and warrants immediate investigation.\n\n"
+
+            "WHAT THIS SYNDROME COVERS: Respiratory fever syndrome is a syndromic grouping — "
+            "it does not represent a single diagnosis. Conditions commonly presenting under this label include:\n"
+            "  · Malaria: fever, chills, and rigors without prominent cough; highly likely in rainy season\n"
+            "  · Pneumonia (bacterial/viral): fever with cough and fast or difficult breathing\n"
+            "  · Influenza-like illness (ILI): fever, body aches, cough, often with cluster spread\n"
+            "  · Upper respiratory tract infection (URTI): fever with sore throat or runny nose, milder course\n"
+            "  · Pulmonary tuberculosis (TB): chronic cough >2 weeks, weight loss, night sweats\n\n"
+
+            "RECOMMENDED ACTIONS:\n"
+            "  1. Deploy additional CHWs to Kibera Health Post for active case finding\n"
+            "  2. Conduct malaria RDT testing for all fever presentations in this catchment\n"
+            "  3. Ensure adequate stock of ACT, amoxicillin, and ORS at health post\n"
+            "  4. Screen for chest indrawing and fast breathing in all paediatric cases\n"
+            "  5. Monitor Mathare Community Center for spillover — currently within normal range\n\n"
+
+            "Acute watery diarrhea (AWD) remains within expected baseline across all reporting locations. "
+            "AWD covers presentations consistent with cholera, rotavirus, food-borne illness, and "
+            "Enterotoxigenic E. coli (ETEC) — community water source monitoring is advised during rainy season.\n\n"
+
+            "Data source: CHW Copilot syndromic surveillance network · 2 locations · 5 weeks of data"
         ),
         "alerts": [
             {
                 "severity": "high",
                 "location": "loc_01",
                 "syndrome": "respiratory_fever",
-                "message": "12 cases (3.2x baseline) — investigate immediately",
+                "message": "12 cases (3.2× baseline) — investigate immediately",
             }
         ],
     },

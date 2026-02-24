@@ -78,52 +78,54 @@ st.markdown("""
 
 # ── Sidebar ──────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("# 🏥 CHW Copilot")
-    st.markdown("**Agentic Syndromic Surveillance**")
+    st.markdown("""
+    <div style='padding:0.5rem 0 1rem 0;'>
+        <div style='font-size:1.2rem;font-weight:700;color:#ffffff;letter-spacing:-0.01em;'>CHW Copilot</div>
+        <div style='font-size:0.75rem;color:#8da87d;text-transform:uppercase;letter-spacing:0.1em;margin-top:0.25rem;'>Syndromic Surveillance</div>
+    </div>
+    """, unsafe_allow_html=True)
     st.markdown("---")
 
     role = st.radio(
-        "Select Role",
-        ["👩‍⚕️ Community Health Worker", "📊 District Officer"],
+        "View",
+        ["CHW Field View", "District Dashboard"],
         index=0,
     )
 
     st.markdown("---")
 
     # Pipeline info
-    st.markdown("### ⚙️ Pipeline Agents")
+    st.markdown("### Pipeline Agents")
     agents = [
-        ("🔬", "Encounter Extractor",    "MedGemma 4b"),
-        ("✅", "Evidence Grounder",       "Deterministic"),
-        ("🏷️", "Syndrome Tagger",         "Keyword rules"),
-        ("🔍", "Sub-syndrome Classifier", "Rule-based"),
-        ("📋", "ICCM Recommendations",   "Rule-based"),
-        ("📐", "Schema Validator",        "Deterministic"),
+        ("Encounter Extractor",    "MedGemma 4b"),
+        ("Evidence Grounder",       "Deterministic"),
+        ("Syndrome Tagger",         "Keyword rules"),
+        ("Sub-syndrome Classifier", "Rule-based"),
+        ("ICCM Recommendations",   "Rule-based"),
+        ("Schema Validator",        "Deterministic"),
     ]
-    for icon, name, engine in agents:
+    for name, engine in agents:
         st.markdown(
-            f'<div style="display:flex;align-items:center;gap:0.5rem;padding:0.25rem 0;">'
-            f'<span>{icon}</span>'
-            f'<span style="color:#f1f5f9;font-size:0.85rem">{name}</span>'
-            f'<span style="color:#64748b;font-size:0.7rem;margin-left:auto">{engine}</span>'
+            f'<div style="display:flex;justify-content:space-between;padding:0.2rem 0;border-bottom:1px solid rgba(255,255,255,0.06);margin:0.1rem 0;">'
+            f'<span style="color:#c8d8b8;font-size:0.82rem;">{name}</span>'
+            f'<span style="color:#5a7a4a;font-size:0.72rem;font-weight:600;">{engine}</span>'
             f'</div>',
             unsafe_allow_html=True,
         )
 
-    st.markdown("---")
     st.markdown(
-        '<div style="color:#64748b;font-size:0.75rem;line-height:1.4;">'
-        '⚠️ <strong>Not for clinical diagnosis.</strong><br>'
+        '<div style="color:#5a7a4a;font-size:0.72rem;line-height:1.6;margin-top:1rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,0.07)">'
+        'Not for clinical diagnosis.<br>'
         'Surveillance support tool only.<br>'
         'All outputs require human verification.<br><br>'
-        '🔒 Privacy-by-design · Offline-first<br>'
-        'Powered by MedGemma 1.5 (HAI-DEF)'
+        'Privacy-by-design · Offline-first<br>'
+        'Powered by MedGemma 4b'
         '</div>',
         unsafe_allow_html=True,
     )
 
 # ── Main Content ─────────────────────────────────────────────
-if "👩‍⚕️" in role:
+if "CHW" in role:
     from chw_view import render_chw_view
     render_chw_view()
 else:
