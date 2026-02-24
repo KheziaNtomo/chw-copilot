@@ -130,6 +130,13 @@ DEMO_RESULTS = [
             "🌡️ Give paracetamol for fever; do malaria RDT if available",
             "📋 No urgent action needed — routine follow-up",
         ],
+        "checklist": [
+            "Is the child able to drink or breastfeed? (WHO danger sign if unable)",
+            "Count respiratory rate — is breathing fast? (≥40/min for age 12m–5y)",
+            "Check for chest indrawing when breathing (WHO ICCM danger sign)",
+            "Has a malaria RDT been done? (Fever ≥3 days warrants testing in endemic areas)",
+            "Are other children in the household or community also sick? (Cluster detection)",
+        ],
         "agent_trace": [
             {"agent": "extract", "name": "Encounter Extractor", "duration_s": 2.341, "fallback_used": False, "output_summary": "Extracted encounter with 4 positive symptoms"},
             {"agent": "evidence_enforce", "name": "Evidence Grounder", "duration_s": 0.002, "fallback_used": False, "output_summary": "0 claims downgraded — fuzzy match accepted"},
@@ -177,6 +184,13 @@ DEMO_RESULTS = [
             "💧 Start ORS immediately; give zinc (10mg if <6mo, 20mg if ≥6mo) for 10 days",
             "⚠️ Persistent vomiting — give ORS in small sips, monitor for dehydration",
         ],
+        "checklist": [
+            "Is the stool bloody? (Bloody diarrhoea = dysentery, requires antibiotics per WHO ICCM)",
+            "How many stools in the last 24 hours? (≥3 watery stools/day = acute diarrhoea)",
+            "Can the child drink ORS now? Re-assess hydration after 4 hours of ORS",
+            "Is there fever? (Fever + diarrhoea may suggest invasive infection)",
+            "Are other family members also affected? (Cluster = possible contaminated water source)",
+        ],
         "agent_trace": [
             {"agent": "extract", "name": "Encounter Extractor", "duration_s": 2.105, "fallback_used": False, "output_summary": "Extracted encounter with 2 positive symptoms"},
             {"agent": "evidence_enforce", "name": "Evidence Grounder", "duration_s": 0.001, "fallback_used": False, "output_summary": "0 claims downgraded"},
@@ -221,6 +235,13 @@ DEMO_RESULTS = [
         "recommendations": [
             "🌡️ Give paracetamol for fever; do malaria RDT if available",
             "💊 Malaria RDT positive — give ACT (artemisinin-based combination therapy)",
+        ],
+        "checklist": [
+            "Has ACT treatment been started? (First dose should be given within 24 hours of positive RDT)",
+            "Is the patient vomiting? (If unable to retain oral ACT, refer for parenteral treatment)",
+            "Any signs of severe malaria? (Confusion, convulsions, inability to sit/stand)",
+            "Is the patient pregnant? (Pregnancy alters treatment protocol — refer)",
+            "Has the patient used a bed net? (Counsel on prevention)",
         ],
         "agent_trace": [
             {"agent": "extract", "name": "Encounter Extractor", "duration_s": 2.412, "fallback_used": False, "output_summary": "Extracted encounter with 3 positive symptoms"},
@@ -267,6 +288,13 @@ DEMO_RESULTS = [
             "REFER — suspect measles (fever + rash + red eyes); isolate from other children",
             "Give vitamin A: 100 000 IU (6–11 mo) or 200 000 IU (≥12 mo) — two doses",
             "Check vaccination status of household contacts; advise catch-up immunisation",
+        ],
+        "checklist": [
+            "Has the child received any measles vaccine doses? (Check vaccination card)",
+            "Are there other children with similar rash in the village? (Outbreak confirmation)",
+            "Is the child able to eat and drink? (Assess for dehydration and malnutrition complications)",
+            "Any mouth ulcers? (Measles can cause oral lesions affecting feeding)",
+            "When did the rash start? (Measles rash typically starts 3–5 days after fever onset)",
         ],
         "agent_trace": [
             {"agent": "extract", "name": "Encounter Extractor", "duration_s": 2.208, "fallback_used": False, "output_summary": "Extracted encounter with 3 positive symptoms + red eyes"},
@@ -319,6 +347,13 @@ DEMO_RESULTS = [
             "Keep infant warm and continue breastfeeding attempts during transport",
             "Count respiratory rate — fast breathing (\u226550/min for \u003c12 mo) confirms pneumonia",
         ],
+        "checklist": [
+            "Has the infant had convulsions? (WHO danger sign — requires urgent referral)",
+            "Is the infant unusually sleepy or difficult to wake? (Altered consciousness = danger sign)",
+            "What is the exact respiratory rate? (Count for full 60 seconds when calm)",
+            "Is there stridor when calm? (Stridor at rest = severe upper airway obstruction)",
+            "Has the infant received any antibiotics already? (Important for referral facility)",
+        ],
         "agent_trace": [
             {"agent": "extract", "name": "Encounter Extractor", "duration_s": 2.312, "fallback_used": False, "output_summary": "Extracted encounter with 3 positive symptoms + 3 red flags"},
             {"agent": "evidence_enforce", "name": "Evidence Grounder", "duration_s": 0.002, "fallback_used": False, "output_summary": "0 claims downgraded"},
@@ -370,6 +405,13 @@ DEMO_RESULTS = [
             "ALERT: Cluster pattern detected — co-workers affected. Notify district health team for outbreak investigation",
             "Identify common food/water source for all affected individuals",
         ],
+        "checklist": [
+            "How many co-workers are affected? (Number of cases needed for outbreak report)",
+            "What was the common food or water source? (Identify point of exposure)",
+            "When did each person's symptoms start? (Timeline helps determine if point-source or propagated)",
+            "Has a stool sample been collected? (Lab confirmation needed for cholera notification)",
+            "What is the patient's urine output? (Reduced output = severe dehydration)",
+        ],
         "agent_trace": [
             {"agent": "extract", "name": "Encounter Extractor", "duration_s": 2.156, "fallback_used": False, "output_summary": "Extracted encounter with 3 positive symptoms + cluster flag"},
             {"agent": "evidence_enforce", "name": "Evidence Grounder", "duration_s": 0.001, "fallback_used": False, "output_summary": "0 claims downgraded"},
@@ -416,6 +458,13 @@ DEMO_RESULTS = [
             "No syndromic classification possible — schedule follow-up in 3 days",
             "Advise pregnancy test if period is late",
             "Screen for anaemia (pallor of palms, conjunctivae) at next visit",
+        ],
+        "checklist": [
+            "When was the last menstrual period? (Rule out pregnancy as cause of dizziness/fatigue)",
+            "Assess pallor of palms and inner eyelids — could this be anaemia?",
+            "Any history of blood loss or heavy periods? (Iron-deficiency anaemia common in young women)",
+            "What is the patient's diet like? (Nutritional deficiencies can cause fatigue + dizziness)",
+            "Any weight loss or night sweats? (Screen for TB or HIV if present)",
         ],
         "agent_trace": [
             {"agent": "extract", "name": "Encounter Extractor", "duration_s": 2.089, "fallback_used": False, "output_summary": "Extracted encounter with 0 core symptoms, 2 other symptoms"},
@@ -466,6 +515,13 @@ DEMO_RESULTS = [
             "Do NOT give doxycycline or primaquine — contraindicated in pregnancy",
             "Insecticide-treated bed net (ITN) — ensure the patient is sleeping under one",
             "Monitor for signs of severe malaria: convulsions, severe anaemia, jaundice",
+        ],
+        "checklist": [
+            "What is the gestational age? (Treatment dosing varies by trimester per WHO guidelines)",
+            "Has the patient been taking IPTp-SP? (Intermittent preventive treatment in pregnancy)",
+            "Any vaginal bleeding or abdominal pain? (Malaria increases miscarriage/preterm risk)",
+            "Check haemoglobin if possible — severe anaemia in pregnancy is a danger sign",
+            "Is the patient sleeping under an ITN every night? (Reinforce prevention)",
         ],
         "agent_trace": [
             {"agent": "extract", "name": "Encounter Extractor", "duration_s": 2.287, "fallback_used": False, "output_summary": "Extracted encounter with 3 positive symptoms, pregnancy flagged"},

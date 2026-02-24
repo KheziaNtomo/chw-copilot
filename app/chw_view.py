@@ -459,5 +459,24 @@ def render_chw_view():
 
     # ── Pipeline Trace ───────────────────────────────────────
     st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+
+    # ── Follow-up Checklist ───────────────────────────────────
+    checklist = selected_result.get("checklist", [])
+    if checklist:
+        st.markdown(
+            '<p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;'
+            'font-weight:700;color:#8a9a7a;margin-bottom:0.5rem;">Follow-up Checklist (WHO ICCM Protocol)</p>',
+            unsafe_allow_html=True,
+        )
+        for i, question in enumerate(checklist, 1):
+            st.markdown(
+                f'<div style="background:rgba(255,255,255,0.03);border-left:3px solid #5a7a4a;'
+                f'padding:0.5rem 0.75rem;margin-bottom:0.35rem;border-radius:4px;'
+                f'font-size:0.88rem;line-height:1.5;color:#c8d8b8;">'
+                f'<strong style="color:#8da87d;">{i}.</strong> {question}</div>',
+                unsafe_allow_html=True,
+            )
+
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
     with st.expander("Pipeline Trace — Agent-by-Agent Execution", expanded=False):
         render_pipeline_trace(selected_result.get("agent_trace", []))

@@ -1,6 +1,6 @@
 ### Project name
 
-CHW Copilot — Turning the First Mile of Care into the First Mile of Surveillance
+Community Health Worker Copilot — Turning the First Mile of Care into the First Mile of Surveillance
 
 ### Your team
 
