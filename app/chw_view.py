@@ -348,12 +348,19 @@ def render_chw_view():
         )
         # Patient info
         patient = encounter.get("patient", {})
-        age = patient.get("age_years", "?")
+        age_years = patient.get("age_years")
+        age_months = patient.get("age_months")
+        if age_months and (age_years is None or age_years == 0):
+            age_display = f"{age_months}mo"
+        elif age_years is not None:
+            age_display = f"{age_years}y"
+        else:
+            age_display = "?"
         sex = patient.get("sex", "?")
         severity = encounter.get("severity", "?")
         st.markdown(
             f'<div class="glass-card">'
-            f'<strong>Patient:</strong> {age}y {sex} &nbsp;|&nbsp; '
+            f'<strong>Patient:</strong> {age_display} {sex} &nbsp;|&nbsp; '
             f'<strong>Severity:</strong> {severity} &nbsp;|&nbsp; '
             f'<strong>Onset:</strong> {encounter.get("onset_days", "?")} day(s) ago'
             f'  <span style="color:#64748b;font-size:0.8rem">(est. onset week {encounter.get("estimated_onset_week", "?")})  </span>'
@@ -445,12 +452,28 @@ def render_chw_view():
         if recommendations:
             for rec in recommendations:
                 is_urgent = rec.startswith("🚨")
-                bg = "rgba(239,68,68,0.15)" if is_urgent else "rgba(255,255,255,0.05)"
-                border = "#ef4444" if is_urgent else "#334155"
+                is_med = rec.startswith("💊") or rec.startswith("💧")
+                is_info = rec.startswith("🌡") or rec.startswith("📋")
+                if is_urgent:
+                    bg = "rgba(239,68,68,0.18)"
+                    border = "#ef4444"
+                    text_color = "#fecaca"
+                elif is_med:
+                    bg = "rgba(34,197,94,0.12)"
+                    border = "#22c55e"
+                    text_color = "#bbf7d0"
+                elif is_info:
+                    bg = "rgba(59,130,246,0.12)"
+                    border = "#3b82f6"
+                    text_color = "#bfdbfe"
+                else:
+                    bg = "rgba(148,163,184,0.12)"
+                    border = "#64748b"
+                    text_color = "#e2e8f0"
                 st.markdown(
                     f'<div style="background:{bg};border-left:3px solid {border};'
                     f'padding:0.5rem 0.75rem;margin-bottom:0.4rem;border-radius:4px;'
-                    f'font-size:0.9rem;line-height:1.5;">'
+                    f'font-size:0.9rem;line-height:1.5;color:{text_color};">'
                     f'{rec}</div>',
                     unsafe_allow_html=True,
                 )
@@ -470,10 +493,10 @@ def render_chw_view():
         )
         for i, question in enumerate(checklist, 1):
             st.markdown(
-                f'<div style="background:rgba(255,255,255,0.03);border-left:3px solid #5a7a4a;'
+                f'<div style="background:rgba(90,122,74,0.12);border-left:3px solid #5a7a4a;'
                 f'padding:0.5rem 0.75rem;margin-bottom:0.35rem;border-radius:4px;'
-                f'font-size:0.88rem;line-height:1.5;color:#c8d8b8;">'
-                f'<strong style="color:#8da87d;">{i}.</strong> {question}</div>',
+                f'font-size:0.88rem;line-height:1.5;color:#d4e4c4;">'
+                f'<strong style="color:#a0c890;">{i}.</strong> {question}</div>',
                 unsafe_allow_html=True,
             )
 
