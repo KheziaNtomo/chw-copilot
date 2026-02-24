@@ -27,8 +27,8 @@ DATA_DIR = ROOT / "data_synth"
 OUT_DIR = ROOT / "data_synth"
 
 # ── Model configuration ─────────────────────────────────────
-# MedGemma 1.5 for all tasks: extraction, syndrome tagging, checklist, SITREP
-MEDGEMMA_MODEL = os.getenv("MEDGEMMA_MODEL", "google/medgemma-1.5-4b-it")
+# MedGemma for all tasks: extraction, syndrome tagging, checklist, SITREP
+MEDGEMMA_MODEL = os.getenv("MEDGEMMA_MODEL", "google/medgemma-4b-it")
 MODEL_VERSION = "1.5"
 MEDGEMMA_DEVICE = "auto"
 

@@ -160,7 +160,7 @@ SOLUTION_ARCHITECTURE = f"""{NARRATIVE_TAG}
 
 ### Why MedGemma?
 
-This submission is built for the **MedGemma Impact Challenge**, where using at least one HAI-DEF model is mandatory. We leverage **MedGemma 1.5** as the system's core "medical-language engine" because:
+This submission is built for the **MedGemma Impact Challenge**, where using at least one HAI-DEF model is mandatory. We leverage **MedGemma** as the system's core "medical-language engine" because:
 
 | Feature | Description |
 |---------|-------------|

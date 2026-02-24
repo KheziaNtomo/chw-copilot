@@ -23,7 +23,7 @@
 # surveillance, no trend detection, and no quality feedback to the CHW.
 #
 # **CHW Copilot** solves this by running an **agentic pipeline** powered by
-# **MedGemma 1.5** (`google/medgemma-1.5-4b-it`). Each field note is processed
+# **MedGemma** (`google/medgemma-4b-it`). Each field note is processed
 # through 6 specialised agents that extract structured encounters, verify
 # evidence, detect hallucinations, classify syndromes, generate follow-up
 # checklists, and validate against JSON schemas. The result is a complete,
@@ -34,11 +34,11 @@
 #
 # | Agent | Method | Purpose |
 # |---|---|---|
-# | 1. Encounter Extractor | MedGemma 1.5 (zero-shot JSON) | Structured symptom/patient extraction |
+# | 1. Encounter Extractor | MedGemma (zero-shot JSON) | Structured symptom/patient extraction |
 # | 2. Evidence Grounder | Deterministic fuzzy match | Verify every claim links to source text |
 # | 3. Hallucination Detector | Pythea/Strawberry budget-gap | Catch contradicted evidence |
-# | 4. Syndrome Tagger | MedGemma 1.5 / keyword fallback | Syndromic classification (ILI, AWD, etc.) |
-# | 5. Checklist Generator | MedGemma 1.5 / rule-based | Recommend follow-up questions for CHW |
+# | 4. Syndrome Tagger | MedGemma / keyword fallback | Syndromic classification (ILI, AWD, etc.) |
+# | 5. Checklist Generator | MedGemma / rule-based | Recommend follow-up questions for CHW |
 # | 6. Schema Validator | JSON Schema Draft 7 | Ensure output conformity |
 #
 # ### Why MedGemma?
@@ -103,9 +103,9 @@ import jsonschema
 print("Schemas managed by src.validate ✅")
 
 # %% [markdown]
-# ## 2. Load MedGemma 1.5
+# ## 2. Load MedGemma
 #
-# **MedGemma 1.5 4b-it** (Google HAI-DEF) — handles all LLM-based agents:
+# **MedGemma 4B-IT** (Google HAI-DEF) — handles all LLM-based agents:
 # - **Agent 1:** Structured extraction from typed CHW notes
 # - **Agent 4:** Syndrome classification
 # - **Agent 5:** Checklist generation
@@ -114,7 +114,7 @@ print("Schemas managed by src.validate ✅")
 # **Adaptation method:** Prompt engineering (zero-shot + JSON schema)
 #
 # > **Note:** MedGemma is a gated model. You need to:
-# > 1. Accept the license at https://huggingface.co/google/medgemma-1.5-4b-it
+# > 1. Accept the license at https://huggingface.co/google/medgemma-4b-it
 # > 2. Add your HuggingFace token as a Kaggle Secret named `HF_TOKEN`
 
 # %%
@@ -137,11 +137,11 @@ else:
         print("⚠️  No HF_TOKEN set — MedGemma may fail to load")
 
 # %%
-# Load MedGemma 1.5
-print("Loading MedGemma 1.5 (4b-it)...")
+# Load MedGemma
+print("Loading MedGemma (4B-IT)...")
 t0 = time.time()
 
-MEDGEMMA_ID = "google/medgemma-1.5-4b-it"
+MEDGEMMA_ID = "google/medgemma-4b-it"
 mg_processor = AutoProcessor.from_pretrained(
     MEDGEMMA_ID, trust_remote_code=True, token=HF_TOKEN
 )
@@ -154,7 +154,7 @@ mg_model = AutoModelForImageTextToText.from_pretrained(
 )
 mg_model.eval()
 device = next(mg_model.parameters()).device
-print(f"MedGemma 1.5 loaded on {device} in {time.time()-t0:.1f}s ✅")
+print(f"MedGemma loaded on {device} in {time.time()-t0:.1f}s ✅")
 
 # %% [markdown]
 # ## 3. Helper Functions
@@ -501,7 +501,7 @@ for tag in sorted(set(list(syndrome_tp.keys()) + list(syndrome_fp.keys()) + list
 #   with no external API calls and strips PII from prompts, it has not
 #   undergone a formal privacy impact assessment or IRB review.
 #
-# - **Small model (4B parameters).** MedGemma 1.5 4B is optimised for edge
+# - **Small model (4B parameters).** MedGemma 4B is optimised for edge
 #   deployment but may under-perform on complex clinical reasoning compared
 #   to larger models.
 
@@ -546,11 +546,11 @@ print(f"Hallucination detection: Pythea/Strawberry (counterfactual evidence scru
 print(f"Adaptation: Prompt engineering + agentic orchestration")
 print()
 print("Agent Pipeline:")
-print("  1. Encounter Extractor  — MedGemma 1.5 (zero-shot JSON extraction)")
+print("  1. Encounter Extractor  — MedGemma (zero-shot JSON extraction)")
 print("  2. Evidence Grounder    — Deterministic (fuzzy substring match)")
 print("  3. Hallucination Detect — Pythea/Strawberry (budget-gap analysis)")
-print("  4. Syndrome Tagger      — MedGemma 1.5 / keyword fallback (hybrid)")
-print("  5. Checklist Generator  — MedGemma 1.5 / rule-based (follow-up Qs)")
+print("  4. Syndrome Tagger      — MedGemma / keyword fallback (hybrid)")
+print("  5. Checklist Generator  — MedGemma / rule-based (follow-up Qs)")
 print("  6. Schema Validator     — JSON Schema (Draft 7) validation")
 print()
 print("Safety: Evidence grounding + Pythea hallucination detection")

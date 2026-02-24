@@ -227,7 +227,7 @@ def render_chw_view():
 
             if st.session_state.get("custom_result"):
                 if st.session_state.get("custom_mode") == "live":
-                    st.success("Pipeline complete — powered by MedGemma 1.5 4B-IT")
+                    st.success("Pipeline complete — powered by MedGemma 4B-IT")
                 else:
                     st.info("Pipeline complete — running in demo mode (deterministic fallbacks). Deploy to HF Spaces with GPU for live MedGemma extraction.")
                 selected_result = st.session_state.custom_result

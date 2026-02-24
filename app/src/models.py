@@ -1,11 +1,11 @@
-"""Model loading and management for MedGemma 1.5.
+"""Model loading and management for MedGemma.
 
-Lazy-loads MedGemma 1.5 model using the Image-Text-to-Text API
-(AutoModelForImageTextToText + AutoProcessor). Caches it so it is
+Lazy-loads MedGemma model using the CausalLM API
+(AutoModelForCausalLM + AutoTokenizer). Caches it so it is
 only loaded once per session regardless of how many calls are made.
 
-MedGemma 1.5 uses AutoProcessor (not AutoTokenizer) and
-AutoModelForImageTextToText (not AutoModelForCausalLM).
+MedGemma uses AutoTokenizer (not AutoTokenizer) and
+AutoModelForCausalLM (not AutoModelForCausalLM).
 
 On HF Spaces / Kaggle, uses 4-bit NF4 quantisation to fit in T4 16GB.
 """
@@ -19,19 +19,19 @@ from . import config
 
 # ── Globals for lazy-loaded model ────────────────────────────
 _medgemma_model = None
-_medgemma_processor = None
+_medgemma_tokenizer = None
 _load_error = None
 
 
 def _load_medgemma():
-    """Lazy-load the MedGemma 1.5 model and processor.
+    """Lazy-load the MedGemma model and tokenizer.
 
     Uses 4-bit NF4 quantisation when USE_4BIT is set (HF Spaces / Kaggle).
     Reads HF_TOKEN from config for gated model access.
     """
-    global _medgemma_model, _medgemma_processor, _load_error
+    global _medgemma_model, _medgemma_tokenizer, _load_error
     if _medgemma_model is not None:
-        return _medgemma_model, _medgemma_processor
+        return _medgemma_model, _medgemma_tokenizer
 
     import torch
 
@@ -40,7 +40,7 @@ def _load_medgemma():
         _load_error = "No GPU available — running in offline mode"
         raise RuntimeError(_load_error)
 
-    from transformers import AutoModelForImageTextToText, AutoProcessor
+    from transformers import AutoModelForCausalLM, AutoTokenizer
 
     # Resolve HF token: env > config
     hf_token = config.HF_TOKEN or os.getenv("HF_TOKEN")
@@ -60,7 +60,7 @@ def _load_medgemma():
     print(f"Loading MedGemma model: {config.MEDGEMMA_MODEL}")
 
     # Processor
-    _medgemma_processor = AutoProcessor.from_pretrained(
+    _medgemma_tokenizer = AutoTokenizer.from_pretrained(
         config.MEDGEMMA_MODEL,
         trust_remote_code=True,
         token=hf_token,
@@ -90,13 +90,13 @@ def _load_medgemma():
             torch.bfloat16 if torch.cuda.is_available() else torch.float32
         )
 
-    _medgemma_model = AutoModelForImageTextToText.from_pretrained(
+    _medgemma_model = AutoModelForCausalLM.from_pretrained(
         config.MEDGEMMA_MODEL,
         **model_kwargs,
     )
     _medgemma_model.eval()
     print(f"MedGemma loaded on {next(_medgemma_model.parameters()).device}")
-    return _medgemma_model, _medgemma_processor
+    return _medgemma_model, _medgemma_tokenizer
 
 
 def is_model_available() -> bool:
@@ -123,11 +123,11 @@ def try_load_model() -> bool:
 def generate_medgemma(prompt: str, max_tokens: int = None) -> str:
     """Run MedGemma generation with a text prompt.
 
-    Uses the chat template format via AutoProcessor for MedGemma 1.5.
+    Uses the chat template format via AutoTokenizer for MedGemma.
     """
     import torch
 
-    model, processor = _load_medgemma()
+    model, tokenizer = _load_medgemma()
     max_tokens = max_tokens or config.REASONING_MAX_TOKENS
 
     # Format as chat message
@@ -135,9 +135,9 @@ def generate_medgemma(prompt: str, max_tokens: int = None) -> str:
         {"role": "user", "content": [{"type": "text", "text": prompt}]},
     ]
 
-    # MedGemma 1.5 uses processor.apply_chat_template which returns
+    # MedGemma uses tokenizer.apply_chat_template which returns
     # tokenized inputs directly
-    inputs = processor.apply_chat_template(
+    inputs = tokenizer.apply_chat_template(
         messages,
         add_generation_prompt=True,
         tokenize=True,
@@ -154,7 +154,7 @@ def generate_medgemma(prompt: str, max_tokens: int = None) -> str:
             do_sample=False,
         )
 
-    generated = processor.decode(
+    generated = tokenizer.decode(
         outputs[0][input_len:], skip_special_tokens=True
     )
     return generated.strip()

@@ -4,7 +4,7 @@ MedGemma-powered syndromic surveillance support tool for
 Community Health Workers and District Health Officers.
 
 Six-agent pipeline: Extract → Ground → Verify → Tag → Checklist → Validate
-Powered by MedGemma 1.5 + Strawberry (Pythea) hallucination detection.
+Powered by MedGemma + Strawberry (Pythea) hallucination detection.
 """
 import sys
 from pathlib import Path
@@ -165,7 +165,7 @@ with st.sidebar:
         'Not for clinical diagnosis.<br>'
         'Surveillance support tool only.<br>'
         'All outputs require human verification.<br><br>'
-        'Powered by MedGemma 1.5 4B-IT'
+        'Powered by MedGemma 4B-IT'
         '</div>',
         unsafe_allow_html=True,
     )

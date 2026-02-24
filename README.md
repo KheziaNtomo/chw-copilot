@@ -1,6 +1,6 @@
 # CHW Copilot
 
-Offline-first, privacy-focused agentic surveillance tool that turns Community Health Worker (CHW) field notes into schema-validated structured encounters and syndromic surveillance signals. Powered by **MedGemma 1.5** with **Strawberry** hallucination detection.
+Offline-first, privacy-focused agentic surveillance tool that turns Community Health Worker (CHW) field notes into schema-validated structured encounters and syndromic surveillance signals. Powered by **MedGemma** with **Strawberry** hallucination detection.
 
 **MedGemma Impact Challenge — Agentic Workflow Prize**
 
@@ -16,7 +16,7 @@ Offline-first, privacy-focused agentic surveillance tool that turns Community He
        │           │
        ▼           ▼
   ┌──────────────────────────────────────────────────────┐
-  │  Agent 1: Encounter Extractor (MedGemma 1.5)        │
+  │  Agent 1: Encounter Extractor (MedGemma)        │
   │  → Structured JSON with evidence_quote per claim     │
   ├──────────────────────────────────────────────────────┤
   │  Agent 2: Evidence Grounder (Deterministic)          │
@@ -25,10 +25,10 @@ Offline-first, privacy-focused agentic surveillance tool that turns Community He
   │  Agent 3: Hallucination Detector (Strawberry/Pythea) │
   │  → Flags procedural hallucinations via budget_gap    │
   ├──────────────────────────────────────────────────────┤
-  │  Agent 4: Syndrome Tagger (MedGemma 1.5)            │
+  │  Agent 4: Syndrome Tagger (MedGemma)            │
   │  → respiratory_fever / acute_watery_diarrhea / other │
   ├──────────────────────────────────────────────────────┤
-  │  Agent 5: Checklist Generator (MedGemma 1.5)        │
+  │  Agent 5: Checklist Generator (MedGemma)        │
   │  → Priority-ranked follow-up questions               │
   ├──────────────────────────────────────────────────────┤
   │  Agent 6: Schema Validator (Deterministic)           │
@@ -43,15 +43,15 @@ Offline-first, privacy-focused agentic surveillance tool that turns Community He
 
 | Component | Model / Tool | Role |
 |-----------|-------------|------|
-| Extraction | MedGemma 1.5 (`google/medgemma-1.5-4b-it`) | Structured encounter from free-text |
+| Extraction | MedGemma (`google/medgemma-4b-it`) | Structured encounter from free-text |
 | Evidence Grounding | Deterministic | Verify evidence_quote ⊂ note |
 | Hallucination Detection | Strawberry (Pythea) | Budget gap analysis per claim |
-| Syndrome Tagging | MedGemma 1.5 | Syndromic classification |
-| Checklist | MedGemma 1.5 | Follow-up question generation |
+| Syndrome Tagging | MedGemma | Syndromic classification |
+| Checklist | MedGemma | Follow-up question generation |
 | Voice Input | MedASR (optional) | Medical speech-to-text |
 | Anomaly Detection | Deterministic (z-score) | Surge detection per location/syndrome |
 
-### MedGemma 1.5 Adaptation
+### MedGemma Adaptation
 
 - **Adaptation method**: Prompt engineering — zero-shot + structured output via JSON schema
 - **API**: `AutoModelForImageTextToText` + `AutoProcessor` (chat template with content blocks)
@@ -65,7 +65,7 @@ prompts/          → Prompt templates for all model calls
 data_synth/       → Synthetic gold data (60 CHW notes) + simulation events (672 events)
 src/              → Pipeline modules
   ├── config.py         → Centralized configuration
-  ├── models.py         → MedGemma 1.5 loader + inference
+  ├── models.py         → MedGemma loader + inference
   ├── pipeline.py       → 6-agent orchestrator with trace
   ├── hallucination.py  → Strawberry integration
   ├── voice.py          → MedASR voice transcription
@@ -123,7 +123,7 @@ python -m pytest tests/ -v                      # Run tests (30 tests)
 | :--- | :--- | :--- |
 | **Interface** | Streamlit Web App (Browser) | Native Android App (Kotlin/Jetpack Compose) |
 | **Compute** | Laptop / Kaggle T4 GPU | On-Device NPU/GPU via **MediaPipe LLM Inference** |
-| **Model** | MedGemma 1.5 (4B) via Transformers | MedGemma 1.5 (2B/4B) quantized to int4 |
+| **Model** | MedGemma (4B) via Transformers | MedGemma (2B/4B) quantized to int4 |
 | **Connectivity** | Localhost / Cloud | **Zero Data Cost** (Fully Offline) |
 | **Data Sync** | CSV / JSON Export | Opportunistic background sync (WorkManager) |
 | **Impact** | Demonstrates logical flow & safety | Enables deployment in remote, disconnected areas |

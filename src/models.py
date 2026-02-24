@@ -1,11 +1,11 @@
-"""Model loading and management for MedGemma 1.5.
+"""Model loading and management for MedGemma.
 
-Lazy-loads MedGemma 1.5 model using the Image-Text-to-Text API
-(AutoModelForImageTextToText + AutoProcessor). Caches it so it is
+Lazy-loads MedGemma model using the CausalLM API
+(AutoModelForCausalLM + AutoTokenizer). Caches it so it is
 only loaded once per session regardless of how many calls are made.
 
-MedGemma 1.5 uses AutoProcessor (not AutoTokenizer) and
-AutoModelForImageTextToText (not AutoModelForCausalLM).
+MedGemma uses AutoTokenizer (not AutoTokenizer) and
+AutoModelForCausalLM (not AutoModelForCausalLM).
 """
 import json
 import logging
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 # ── Globals for lazy-loaded model ────────────────────────────
 _medgemma_model = None
-_medgemma_processor = None
+_medgemma_tokenizer = None
 
 
 def is_model_available() -> bool:
@@ -27,17 +27,17 @@ def is_model_available() -> bool:
 
 
 def _load_medgemma():
-    """Lazy-load the MedGemma 1.5 model and processor.
+    """Lazy-load the MedGemma model and tokenizer.
 
     Raises RuntimeError if the model cannot be loaded, with a descriptive
     message about the likely cause.
     """
-    global _medgemma_model, _medgemma_processor
+    global _medgemma_model, _medgemma_tokenizer
     if _medgemma_model is not None:
-        return _medgemma_model, _medgemma_processor
+        return _medgemma_model, _medgemma_tokenizer
 
     try:
-        from transformers import AutoModelForImageTextToText, AutoProcessor
+        from transformers import AutoModelForCausalLM, AutoTokenizer
         import torch
     except ImportError as e:
         raise RuntimeError(
@@ -47,11 +47,11 @@ def _load_medgemma():
 
     logger.info("Loading MedGemma model: %s", config.MEDGEMMA_MODEL)
     try:
-        _medgemma_processor = AutoProcessor.from_pretrained(
+        _medgemma_tokenizer = AutoTokenizer.from_pretrained(
             config.MEDGEMMA_MODEL,
             trust_remote_code=True,
         )
-        _medgemma_model = AutoModelForImageTextToText.from_pretrained(
+        _medgemma_model = AutoModelForCausalLM.from_pretrained(
             config.MEDGEMMA_MODEL,
             trust_remote_code=True,
             torch_dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
@@ -62,24 +62,24 @@ def _load_medgemma():
         logger.info("MedGemma loaded successfully on %s", device)
     except Exception as e:
         _medgemma_model = None
-        _medgemma_processor = None
+        _medgemma_tokenizer = None
         raise RuntimeError(
             f"Failed to load MedGemma model '{config.MEDGEMMA_MODEL}': {e}. "
             f"Ensure you have GPU access, sufficient VRAM (~8GB), "
             f"and a valid HuggingFace token for gated model access."
         ) from e
 
-    return _medgemma_model, _medgemma_processor
+    return _medgemma_model, _medgemma_tokenizer
 
 
 def generate_medgemma(prompt: str, max_tokens: int = None) -> str:
     """Run MedGemma generation with a text prompt.
 
-    Uses the chat template format via AutoProcessor for MedGemma 1.5.
+    Uses the chat template format via AutoTokenizer for MedGemma.
     """
     import torch
 
-    model, processor = _load_medgemma()
+    model, tokenizer = _load_medgemma()
     max_tokens = max_tokens or config.REASONING_MAX_TOKENS
 
     # Format as chat message
@@ -87,9 +87,9 @@ def generate_medgemma(prompt: str, max_tokens: int = None) -> str:
         {"role": "user", "content": [{"type": "text", "text": prompt}]},
     ]
 
-    # MedGemma 1.5 uses processor.apply_chat_template which returns
+    # MedGemma uses tokenizer.apply_chat_template which returns
     # tokenized inputs directly
-    inputs = processor.apply_chat_template(
+    inputs = tokenizer.apply_chat_template(
         messages,
         add_generation_prompt=True,
         tokenize=True,
@@ -106,7 +106,7 @@ def generate_medgemma(prompt: str, max_tokens: int = None) -> str:
             do_sample=False,
         )
 
-    generated = processor.decode(
+    generated = tokenizer.decode(
         outputs[0][input_len:], skip_special_tokens=True
     )
     return generated.strip()

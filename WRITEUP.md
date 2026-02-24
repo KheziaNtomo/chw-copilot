@@ -29,7 +29,7 @@ With 3.8 million CHWs globally, even partial adoption of automated structured ex
 
 ### Overall solution
 
-I built CHW Copilot as an agentic pipeline where **MedGemma 1.5 4B-IT** serves as the core intelligence for clinical reasoning, with deterministic safety layers enforcing evidence quality.
+I built CHW Copilot as an agentic pipeline where **MedGemma 4B-IT** serves as the core intelligence for clinical reasoning, with deterministic safety layers enforcing evidence quality.
 
 **Encounter Extraction** (MedGemma): Reads raw CHW notes and produces structured JSON encounters with symptoms, patient demographics, severity, red flags, onset duration, treatments, and referral status. Each positive symptom must be accompanied by a verbatim evidence quote copied from the original note. MedGemma's medical domain pre-training is essential — it correctly interprets CHW shorthand that general-purpose LLMs miss: "hot body" as fever, "pulling in of chest" as chest indrawing (a WHO danger sign), "rice-water stool" as cholera-like acute watery diarrhoea. The extraction prompt uses a one-shot approach (research-backed best practice for MedGemma) with a complete worked example.
 
@@ -57,7 +57,7 @@ I built CHW Copilot as an agentic pipeline where **MedGemma 1.5 4B-IT** serves a
 |--------|-------|
 | Syndrome tag accuracy (keyword fallback) | 95.0% (57/60 gold-standard encounters) |
 | Processing time per note | ~1 minute (T4 GPU, 4-bit NF4 quantisation) |
-| Model | MedGemma 1.5 4B-IT, 4-bit NF4 via bitsandbytes (~5GB VRAM) |
+| Model | MedGemma 4B-IT, 4-bit NF4 via bitsandbytes (~5GB VRAM) |
 
 **Anomaly detection**: Several approaches exist in public health surveillance — z-scoring, CUSUM (cumulative sum for sustained shifts), EWMA (exponentially weighted average for seasonal adaptation), Poisson/negative binomial regression, and the Farrington algorithm (used by ECDC with quasi-Poisson trend adjustment). For this demonstration, I used simple z-scoring (count vs. 4-week rolling baseline, threshold 3.0) because it is transparent and familiar to district health officers working with DHIS2. A production system would use Farrington or CUSUM for higher specificity.
 
