@@ -75,7 +75,14 @@ The demonstration deployment is a **Streamlit web application hosted on Hugging 
 
 The HF Spaces demo validates the core pipeline, but a real-world deployment would differ significantly:
 
-**User-facing application**: An Android app (the dominant platform for CHWs in LMIC settings) with voice-to-text input, offline-capable data collection, and integration with existing Community Health Toolkit (CHT) or DHIS2 workflows. The CHW receives immediate clinical feedback — red-flag alerts, ICCM treatment recommendations — at the point of care.
+**User-facing application**: An Android app (the dominant platform for CHWs in LMIC settings) with offline-capable data collection and integration with existing Community Health Toolkit (CHT) or DHIS2 workflows. The CHW receives immediate clinical feedback — red-flag alerts, ICCM treatment recommendations — at the point of care.
+
+**Input modalities**: In the current demonstration, notes are typed. However, many CHWs still record observations on paper registers or prefer to speak rather than type. A production system should support multiple input channels:
+- **Typed text** (current) — direct entry into the app
+- **Scanned handwritten notes** — using on-device OCR (e.g., Google ML Kit) to digitise paper registers, then feeding the extracted text into MedGemma for structured extraction
+- **Voice recordings** — using speech-to-text (e.g., Whisper or Google Speech API, with support for local languages and accents) to transcribe spoken observations, then processing the transcript through the same pipeline
+
+MedGemma's ability to handle noisy, informal clinical text makes it well-suited for all three modalities, since OCR and speech-to-text outputs tend to contain errors and abbreviations similar to those found in manually typed CHW notes.
 
 **On-device vs cloud inference**: Ideally, MedGemma (or a smaller variant like Gemma 2B distilled for this task) would run on-device so CHWs can process notes without connectivity. However, **surveillance fundamentally requires aggregation** — individual encounters must flow to a central system to detect population-level signals. The architecture would follow a "process locally, aggregate centrally" pattern:
 
