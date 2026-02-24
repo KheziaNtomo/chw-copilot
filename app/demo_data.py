@@ -39,6 +39,57 @@ DEMO_NOTES = [
         "location_id": "loc_01",
         "week_id": 5,
     },
+    {
+        "id": "demo_004",
+        "title": "Measles-like rash — child",
+        "note_text": (
+            "Child 6yr rash all over body eyes red fever 4 days measles in village "
+            "cough present not vaccinated referred district hospital"
+        ),
+        "location_id": "loc_02",
+        "week_id": 7,
+    },
+    {
+        "id": "demo_005",
+        "title": "Severe pneumonia — infant",
+        "note_text": (
+            "Baby 11 months fever 2 days cough pulling in of chest when breathing "
+            "not breastfeeding well restless unable to drink referred urgent"
+        ),
+        "location_id": "loc_01",
+        "week_id": 6,
+    },
+    {
+        "id": "demo_006",
+        "title": "Cholera-like AWD — adult cluster",
+        "note_text": (
+            "Male 25 sudden diarrhea rice-water type cramping vomiting co-workers "
+            "also affected ate same food at canteen becoming weak skin pinch slow"
+        ),
+        "location_id": "loc_02",
+        "week_id": 7,
+    },
+    {
+        "id": "demo_007",
+        "title": "Unclear presentation — fatigue",
+        "note_text": (
+            "Woman 23 dizziness and fatigue ate today no vomiting no diarrhea "
+            "no cough no fever might be pregnant"
+        ),
+        "location_id": "loc_01",
+        "week_id": 8,
+    },
+    {
+        "id": "demo_008",
+        "title": "Malaria in pregnancy",
+        "note_text": (
+            "Pregnant woman 26 weeks headache high fever chills 3 days "
+            "no cough no diarrhea RDT positive needs ACT safe for pregnancy "
+            "referred ANC clinic urgent"
+        ),
+        "location_id": "loc_02",
+        "week_id": 8,
+    },
 ]
 
 # ── Full Pipeline Outputs (Pre-computed) ─────────────────────
@@ -180,6 +231,251 @@ DEMO_RESULTS = [
             {"agent": "validate", "name": "Schema Validator", "duration_s": 0.001, "fallback_used": False, "output_summary": "Schema valid: True"},
         ],
         "processing_time_s": 2.42,
+    },
+    # ── demo_004  Measles-like rash — child ──
+    {
+        "encounter": {
+            "encounter_id": "demo_004",
+            "location_id": "loc_02",
+            "week_id": 7,
+            "patient": {"age_years": 6, "sex": "unknown"},
+            "symptoms": {
+                "fever": {"value": "yes", "evidence_quote": "fever 4 days"},
+                "cough": {"value": "yes", "evidence_quote": "cough present"},
+                "diarrhea": {"value": "unknown", "evidence_quote": ""},
+                "vomiting": {"value": "unknown", "evidence_quote": ""},
+                "rash": {"value": "yes", "evidence_quote": "rash all over body"},
+            },
+            "other_symptoms": {
+                "red_eyes": {"value": "yes", "evidence_quote": "eyes red"},
+            },
+            "onset_days": 4,
+            "estimated_onset_week": 7,
+            "severity": "moderate",
+            "red_flags": [],
+            "treatment_given": [],
+            "referral": True,
+        },
+        "syndrome_tag": {
+            "syndrome_tag": "other",
+            "sub_syndrome": "measles-like",
+            "confidence": "high",
+            "reasoning": "Fever + generalised rash + conjunctivitis (red eyes) + cough. Known measles outbreak in village. Classic measles prodrome.",
+            "trigger_quotes": ["rash all over body", "eyes red", "fever 4 days", "measles in village"],
+        },
+        "recommendations": [
+            "REFER — suspect measles (fever + rash + red eyes); isolate from other children",
+            "Give vitamin A: 100 000 IU (6–11 mo) or 200 000 IU (≥12 mo) — two doses",
+            "Check vaccination status of household contacts; advise catch-up immunisation",
+        ],
+        "agent_trace": [
+            {"agent": "extract", "name": "Encounter Extractor", "duration_s": 2.208, "fallback_used": False, "output_summary": "Extracted encounter with 3 positive symptoms + red eyes"},
+            {"agent": "evidence_enforce", "name": "Evidence Grounder", "duration_s": 0.002, "fallback_used": False, "output_summary": "0 claims downgraded"},
+            {"agent": "tag", "name": "Syndrome Tagger", "duration_s": 0.001, "fallback_used": False, "output_summary": "Tagged as other (high) — rash + fever + conjunctivitis"},
+            {"agent": "sub_syndrome", "name": "Sub-syndrome Classifier", "duration_s": 0.001, "fallback_used": False, "output_summary": "Sub-syndrome: measles-like"},
+            {"agent": "recommend", "name": "ICCM Recommendations", "duration_s": 0.001, "fallback_used": False, "output_summary": "Generated 3 recommendations incl. vitamin A"},
+            {"agent": "validate", "name": "Schema Validator", "duration_s": 0.001, "fallback_used": False, "output_summary": "Schema valid: True"},
+        ],
+        "processing_time_s": 2.21,
+    },
+    # ── demo_005  Severe pneumonia — infant ──
+    {
+        "encounter": {
+            "encounter_id": "demo_005",
+            "location_id": "loc_01",
+            "week_id": 6,
+            "patient": {"age_years": 0, "age_months": 11, "sex": "unknown"},
+            "symptoms": {
+                "fever": {"value": "yes", "evidence_quote": "fever 2 days"},
+                "cough": {"value": "yes", "evidence_quote": "cough"},
+                "diarrhea": {"value": "unknown", "evidence_quote": ""},
+                "vomiting": {"value": "unknown", "evidence_quote": ""},
+                "rash": {"value": "unknown", "evidence_quote": ""},
+            },
+            "other_symptoms": {
+                "difficulty_breathing": {"value": "yes", "evidence_quote": "pulling in of chest when breathing"},
+            },
+            "onset_days": 2,
+            "estimated_onset_week": 6,
+            "severity": "severe",
+            "red_flags": [
+                {"flag": "chest_indrawing", "evidence_quote": "pulling in of chest when breathing"},
+                {"flag": "unable_to_drink", "evidence_quote": "unable to drink"},
+                {"flag": "not_feeding", "evidence_quote": "not breastfeeding well"},
+            ],
+            "treatment_given": [],
+            "referral": True,
+        },
+        "syndrome_tag": {
+            "syndrome_tag": "respiratory_fever",
+            "sub_syndrome": "lower-respiratory",
+            "confidence": "high",
+            "reasoning": "Fever + cough + chest indrawing in infant \u003c12 months — severe pneumonia. Multiple danger signs (unable to drink, not feeding).",
+            "trigger_quotes": ["fever 2 days", "cough", "pulling in of chest"],
+        },
+        "recommendations": [
+            "REFER IMMEDIATELY — danger sign(s): chest indrawing, unable to drink",
+            "Give first dose of amoxicillin if available before referral",
+            "Keep infant warm and continue breastfeeding attempts during transport",
+            "Count respiratory rate — fast breathing (\u226550/min for \u003c12 mo) confirms pneumonia",
+        ],
+        "agent_trace": [
+            {"agent": "extract", "name": "Encounter Extractor", "duration_s": 2.312, "fallback_used": False, "output_summary": "Extracted encounter with 3 positive symptoms + 3 red flags"},
+            {"agent": "evidence_enforce", "name": "Evidence Grounder", "duration_s": 0.002, "fallback_used": False, "output_summary": "0 claims downgraded"},
+            {"agent": "tag", "name": "Syndrome Tagger", "duration_s": 0.001, "fallback_used": False, "output_summary": "Tagged as respiratory_fever (high) — fever + cough + chest indrawing"},
+            {"agent": "sub_syndrome", "name": "Sub-syndrome Classifier", "duration_s": 0.001, "fallback_used": False, "output_summary": "Sub-syndrome: lower-respiratory (chest indrawing)"},
+            {"agent": "recommend", "name": "ICCM Recommendations", "duration_s": 0.001, "fallback_used": False, "output_summary": "Generated 4 recommendations — REFER IMMEDIATELY"},
+            {"agent": "validate", "name": "Schema Validator", "duration_s": 0.001, "fallback_used": False, "output_summary": "Schema valid: True"},
+        ],
+        "processing_time_s": 2.32,
+    },
+    # ── demo_006  Cholera-like AWD — adult cluster ──
+    {
+        "encounter": {
+            "encounter_id": "demo_006",
+            "location_id": "loc_02",
+            "week_id": 7,
+            "patient": {"age_years": 25, "sex": "male"},
+            "symptoms": {
+                "fever": {"value": "unknown", "evidence_quote": ""},
+                "cough": {"value": "unknown", "evidence_quote": ""},
+                "diarrhea": {"value": "yes", "evidence_quote": "sudden diarrhea rice-water type"},
+                "vomiting": {"value": "yes", "evidence_quote": "vomiting"},
+                "rash": {"value": "unknown", "evidence_quote": ""},
+            },
+            "other_symptoms": {
+                "abdominal_cramps": {"value": "yes", "evidence_quote": "cramping"},
+            },
+            "onset_days": 1,
+            "estimated_onset_week": 7,
+            "severity": "severe",
+            "red_flags": [
+                {"flag": "dehydration_signs", "evidence_quote": "skin pinch slow"},
+                {"flag": "persistent_vomiting", "evidence_quote": "vomiting"},
+                {"flag": "cluster_pattern", "evidence_quote": "co-workers also affected"},
+            ],
+            "treatment_given": [],
+            "referral": True,
+        },
+        "syndrome_tag": {
+            "syndrome_tag": "acute_watery_diarrhea",
+            "sub_syndrome": None,
+            "confidence": "high",
+            "reasoning": "Rice-water diarrhea + vomiting + dehydration signs. Multiple co-workers affected — cluster pattern suggests common-source outbreak (foodborne or waterborne).",
+            "trigger_quotes": ["sudden diarrhea rice-water type", "vomiting", "co-workers also affected"],
+        },
+        "recommendations": [
+            "REFER IMMEDIATELY — danger sign(s): dehydration (slow skin pinch), persistent vomiting",
+            "Start ORS immediately; give in small frequent sips if vomiting",
+            "ALERT: Cluster pattern detected — co-workers affected. Notify district health team for outbreak investigation",
+            "Identify common food/water source for all affected individuals",
+        ],
+        "agent_trace": [
+            {"agent": "extract", "name": "Encounter Extractor", "duration_s": 2.156, "fallback_used": False, "output_summary": "Extracted encounter with 3 positive symptoms + cluster flag"},
+            {"agent": "evidence_enforce", "name": "Evidence Grounder", "duration_s": 0.001, "fallback_used": False, "output_summary": "0 claims downgraded"},
+            {"agent": "tag", "name": "Syndrome Tagger", "duration_s": 0.001, "fallback_used": False, "output_summary": "Tagged as acute_watery_diarrhea (high) — rice-water stool"},
+            {"agent": "sub_syndrome", "name": "Sub-syndrome Classifier", "duration_s": 0.001, "fallback_used": False, "output_summary": "N/A for AWD"},
+            {"agent": "recommend", "name": "ICCM Recommendations", "duration_s": 0.001, "fallback_used": False, "output_summary": "Generated 4 recommendations — REFER + cluster alert"},
+            {"agent": "validate", "name": "Schema Validator", "duration_s": 0.001, "fallback_used": False, "output_summary": "Schema valid: True"},
+        ],
+        "processing_time_s": 2.16,
+    },
+    # ── demo_007  Unclear presentation — fatigue ──
+    {
+        "encounter": {
+            "encounter_id": "demo_007",
+            "location_id": "loc_01",
+            "week_id": 8,
+            "patient": {"age_years": 23, "sex": "female"},
+            "symptoms": {
+                "fever": {"value": "no", "evidence_quote": "no fever"},
+                "cough": {"value": "no", "evidence_quote": "no cough"},
+                "diarrhea": {"value": "no", "evidence_quote": "no diarrhea"},
+                "vomiting": {"value": "no", "evidence_quote": "no vomiting"},
+                "rash": {"value": "unknown", "evidence_quote": ""},
+            },
+            "other_symptoms": {
+                "dizziness": {"value": "yes", "evidence_quote": "dizziness"},
+                "fatigue": {"value": "yes", "evidence_quote": "fatigue"},
+            },
+            "onset_days": None,
+            "estimated_onset_week": 8,
+            "severity": "mild",
+            "red_flags": [],
+            "treatment_given": [],
+            "referral": False,
+        },
+        "syndrome_tag": {
+            "syndrome_tag": "unclear",
+            "sub_syndrome": None,
+            "confidence": "low",
+            "reasoning": "No fever, no cough, no diarrhea. Only dizziness and fatigue — insufficient to classify into any syndromic category. Possible pregnancy or anaemia.",
+            "trigger_quotes": ["dizziness", "fatigue"],
+        },
+        "recommendations": [
+            "No syndromic classification possible — schedule follow-up in 3 days",
+            "Advise pregnancy test if period is late",
+            "Screen for anaemia (pallor of palms, conjunctivae) at next visit",
+        ],
+        "agent_trace": [
+            {"agent": "extract", "name": "Encounter Extractor", "duration_s": 2.089, "fallback_used": False, "output_summary": "Extracted encounter with 0 core symptoms, 2 other symptoms"},
+            {"agent": "evidence_enforce", "name": "Evidence Grounder", "duration_s": 0.001, "fallback_used": False, "output_summary": "0 claims downgraded"},
+            {"agent": "tag", "name": "Syndrome Tagger", "duration_s": 0.001, "fallback_used": False, "output_summary": "Tagged as unclear (low) — no core symptoms"},
+            {"agent": "sub_syndrome", "name": "Sub-syndrome Classifier", "duration_s": 0.001, "fallback_used": False, "output_summary": "N/A for unclear"},
+            {"agent": "recommend", "name": "ICCM Recommendations", "duration_s": 0.001, "fallback_used": False, "output_summary": "Generated 3 recommendations — follow-up"},
+            {"agent": "validate", "name": "Schema Validator", "duration_s": 0.001, "fallback_used": False, "output_summary": "Schema valid: True"},
+        ],
+        "processing_time_s": 2.09,
+    },
+    # ── demo_008  Malaria in pregnancy ──
+    {
+        "encounter": {
+            "encounter_id": "demo_008",
+            "location_id": "loc_02",
+            "week_id": 8,
+            "patient": {"age_years": 26, "sex": "female", "pregnant": True, "gestational_weeks": 26},
+            "symptoms": {
+                "fever": {"value": "yes", "evidence_quote": "high fever"},
+                "cough": {"value": "no", "evidence_quote": "no cough"},
+                "diarrhea": {"value": "no", "evidence_quote": "no diarrhea"},
+                "vomiting": {"value": "unknown", "evidence_quote": ""},
+                "rash": {"value": "unknown", "evidence_quote": ""},
+            },
+            "other_symptoms": {
+                "headache": {"value": "yes", "evidence_quote": "headache"},
+                "chills": {"value": "yes", "evidence_quote": "chills 3 days"},
+            },
+            "onset_days": 3,
+            "estimated_onset_week": 8,
+            "severity": "moderate",
+            "red_flags": [
+                {"flag": "pregnant_with_fever", "evidence_quote": "pregnant woman 26 weeks headache high fever"},
+            ],
+            "treatment_given": [],
+            "referral": True,
+        },
+        "syndrome_tag": {
+            "syndrome_tag": "other",
+            "sub_syndrome": "malaria-like",
+            "confidence": "high",
+            "reasoning": "Fever + chills + headache with positive RDT in pregnant woman. No respiratory symptoms. Malaria in pregnancy — special population requiring facility-level ACT dosing.",
+            "trigger_quotes": ["high fever", "chills 3 days", "RDT positive"],
+        },
+        "recommendations": [
+            "REFER to ANC clinic — malaria in pregnancy requires supervised ACT treatment",
+            "Do NOT give doxycycline or primaquine — contraindicated in pregnancy",
+            "Insecticide-treated bed net (ITN) — ensure the patient is sleeping under one",
+            "Monitor for signs of severe malaria: convulsions, severe anaemia, jaundice",
+        ],
+        "agent_trace": [
+            {"agent": "extract", "name": "Encounter Extractor", "duration_s": 2.287, "fallback_used": False, "output_summary": "Extracted encounter with 3 positive symptoms, pregnancy flagged"},
+            {"agent": "evidence_enforce", "name": "Evidence Grounder", "duration_s": 0.002, "fallback_used": False, "output_summary": "0 claims downgraded"},
+            {"agent": "tag", "name": "Syndrome Tagger", "duration_s": 0.001, "fallback_used": False, "output_summary": "Tagged as other (high) — fever + RDT+, no respiratory symptoms"},
+            {"agent": "sub_syndrome", "name": "Sub-syndrome Classifier", "duration_s": 0.001, "fallback_used": False, "output_summary": "Sub-syndrome: malaria-like (pregnancy context)"},
+            {"agent": "recommend", "name": "ICCM Recommendations", "duration_s": 0.001, "fallback_used": False, "output_summary": "Generated 4 recommendations — ANC referral + pregnancy safety"},
+            {"agent": "validate", "name": "Schema Validator", "duration_s": 0.001, "fallback_used": False, "output_summary": "Schema valid: True"},
+        ],
+        "processing_time_s": 2.29,
     },
 ]
 

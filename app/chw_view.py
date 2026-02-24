@@ -178,9 +178,10 @@ def render_chw_view():
                 if note_input.strip():
                     st.session_state.custom_note = note_input
                     st.session_state.show_custom = True
+                    st.session_state.pop("custom_result", None)  # clear previous result
 
         if st.session_state.get("show_custom") and st.session_state.get("custom_note"):
-            # Run the real pipeline with deterministic fallbacks (no GPU needed)
+            # Run the pipeline — use MedGemma if available, else deterministic
             if "custom_result" not in st.session_state:
                 import sys
                 from pathlib import Path
@@ -190,36 +191,65 @@ def render_chw_view():
                     sys.path.insert(0, project_root)
                 try:
                     from src.pipeline import process_encounter
-                    with st.spinner("🔬 Running 6-agent pipeline (deterministic mode)..."):
-                        st.session_state.custom_result = process_encounter(
-                            st.session_state.custom_note,
-                            encounter_id="custom_001",
-                            location_id="custom",
-                            week_id=0,
-                            extractor="stub",
-                            use_model_tagger=False,
-                            use_model_checklist=False,
-                            run_hallucination_check=False,
-                        )
+                    from src.models import is_model_available
+
+                    if is_model_available():
+                        # Live MedGemma mode
+                        with st.spinner("Running 6-agent pipeline with MedGemma..."):
+                            st.session_state.custom_result = process_encounter(
+                                st.session_state.custom_note,
+                                encounter_id="custom_001",
+                                location_id="custom",
+                                week_id=0,
+                                extractor="medgemma",
+                                use_model_tagger=True,
+                                use_model_checklist=True,
+                                run_hallucination_check=True,
+                            )
+                        st.session_state.custom_mode = "live"
+                    else:
+                        # Deterministic fallback mode
+                        with st.spinner("Running 6-agent pipeline (deterministic mode)..."):
+                            st.session_state.custom_result = process_encounter(
+                                st.session_state.custom_note,
+                                encounter_id="custom_001",
+                                location_id="custom",
+                                week_id=0,
+                                extractor="stub",
+                                use_model_tagger=False,
+                                use_model_checklist=False,
+                                run_hallucination_check=False,
+                            )
+                        st.session_state.custom_mode = "deterministic"
                 except Exception as e:
                     st.error(f"Pipeline error: {e}")
                     st.session_state.custom_result = None
 
             if st.session_state.get("custom_result"):
-                st.success("✅ Pipeline complete — running in offline mode (deterministic fallbacks). See Kaggle notebook for full MedGemma results.")
+                if st.session_state.get("custom_mode") == "live":
+                    st.success("Pipeline complete — powered by MedGemma 1.5 4B-IT")
+                else:
+                    st.info("Pipeline complete — running in demo mode (deterministic fallbacks). Deploy to HF Spaces with GPU for live MedGemma extraction.")
                 selected_result = st.session_state.custom_result
                 selected_note = st.session_state.custom_note
 
     with tab_demo:
-        demo_cols = st.columns(len(DEMO_NOTES) + 1)
-        for i, note in enumerate(DEMO_NOTES):
-            with demo_cols[i]:
-                if st.button(note['title'], key=f"demo_{i}", use_container_width=True):
-                    selected_result = DEMO_RESULTS[i]
-                    selected_note = note["note_text"]
-                    st.session_state.selected_demo = i
+        # Split demo buttons into two rows for readability
+        row_size = 4
+        for row_start in range(0, len(DEMO_NOTES), row_size):
+            row_notes = DEMO_NOTES[row_start:row_start + row_size]
+            cols = st.columns(row_size)
+            for j, note in enumerate(row_notes):
+                idx = row_start + j
+                with cols[j]:
+                    if st.button(note['title'], key=f"demo_{idx}", use_container_width=True):
+                        selected_result = DEMO_RESULTS[idx]
+                        selected_note = note["note_text"]
+                        st.session_state.selected_demo = idx
 
-        with demo_cols[-1]:
+        # Failure mode button on its own line
+        fail_col, _ = st.columns([1, 3])
+        with fail_col:
             if st.button("Failure Mode", key="demo_fail", use_container_width=True):
                 st.session_state.show_failure = True
 
@@ -388,6 +418,8 @@ def render_chw_view():
                 "malaria-like":   "#a78bfa",
                 "TB-like":        "#f87171",
                 "upper-respiratory": "#60a5fa",
+                "lower-respiratory": "#f97316",
+                "measles-like":     "#ec4899",
             }
             sc = sub_colors.get(sub, "#94a3b8")
             st.markdown(

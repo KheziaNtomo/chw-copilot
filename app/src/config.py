@@ -1,18 +1,23 @@
 """Central configuration for models, paths, and runtime settings.
 
-Switch between local (CPU/small models) and Kaggle (GPU/full models)
-by setting the environment variable CHW_ENV=kaggle.
+Switch between local (CPU/small models), Kaggle (GPU/full models),
+and Hugging Face Spaces (GPU/full models) by setting environment
+variables or deploying to the respective platform.
 """
 import os
 from pathlib import Path
 
 # ── Environment ──────────────────────────────────────────────
-ENV = os.getenv("CHW_ENV", "local")  # "local" or "kaggle"
+ENV = os.getenv("CHW_ENV", "local")  # "local", "kaggle", or "hf"
 IS_KAGGLE = ENV == "kaggle" or os.path.exists("/kaggle/working")
+IS_HF_SPACE = os.getenv("SPACE_ID") is not None  # Set automatically by HF Spaces
 
 # ── Paths ────────────────────────────────────────────────────
 if IS_KAGGLE:
     ROOT = Path("/kaggle/input/chw-copilot")
+elif IS_HF_SPACE:
+    # HF Space root is the app/ directory itself
+    ROOT = Path(__file__).parent.parent
 else:
     ROOT = Path(__file__).parent.parent
 
@@ -23,10 +28,15 @@ OUT_DIR = ROOT / "data_synth"
 
 # ── Model configuration ─────────────────────────────────────
 # MedGemma 1.5 for all tasks: extraction, syndrome tagging, checklist, SITREP
-# MedGemma 1.5 adds EHR understanding and medical document understanding
 MEDGEMMA_MODEL = os.getenv("MEDGEMMA_MODEL", "google/medgemma-1.5-4b-it")
 MODEL_VERSION = "1.5"
 MEDGEMMA_DEVICE = "auto"
+
+# Enable 4-bit quantisation on HF Spaces / Kaggle for T4 16GB
+USE_4BIT = IS_HF_SPACE or IS_KAGGLE or os.getenv("USE_4BIT", "").lower() in ("1", "true")
+
+# HF token for gated model access — read from env or Streamlit secrets
+HF_TOKEN = os.getenv("HF_TOKEN")
 
 # Adaptation methods used (for documentation / judge alignment)
 ADAPTATION_METHODS = [

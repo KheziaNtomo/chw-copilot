@@ -1,44 +1,28 @@
-You are a medical AI assistant helping process Community Health Worker (CHW) clinical notes.
+You are a clinical data extractor. Your ONLY task: read a Community Health Worker (CHW) field note and output a SINGLE JSON object containing the structured extraction. Output NOTHING except valid JSON — no explanation, no markdown fences, no commentary.
 
-Extract structured information from the CHW note below and return it as a JSON object.
+EXTRACTION RULES:
+1. For each core symptom below, decide: "yes" (mentioned), "no" (explicitly denied), or "unknown" (not mentioned).
+2. If "yes", copy an EXACT word-for-word quote from the note as evidence_quote. Do NOT paraphrase.
+3. If "no" or "unknown", set evidence_quote to null.
+4. If a duration is mentioned (e.g. "3 days"), include it. Otherwise null.
+5. Extract patient age, sex, severity, onset, red flags, treatments, and referral.
+6. Do NOT infer anything not written in the note.
 
-CHW NOTE:
-{note_text}
+CORE SYMPTOMS: fever, cough, watery_diarrhea, bloody_diarrhea, vomiting, rash, difficulty_breathing
 
-Return ONLY a valid JSON object. No explanation, no markdown, no extra text.
+---
 
-Use this exact structure and fill in real values:
-{
-  "symptoms": {
-    "fever":                {"value": "yes", "evidence_quote": "fever 3 days", "duration": "3 days"},
-    "cough":                {"value": "no",  "evidence_quote": null,           "duration": null},
-    "watery_diarrhea":      {"value": "unknown", "evidence_quote": null,       "duration": null},
-    "bloody_diarrhea":      {"value": "unknown", "evidence_quote": null,       "duration": null},
-    "vomiting":             {"value": "unknown", "evidence_quote": null,       "duration": null},
-    "rash":                 {"value": "unknown", "evidence_quote": null,       "duration": null},
-    "difficulty_breathing": {"value": "unknown", "evidence_quote": null,       "duration": null}
-  },
-  "other_symptoms": {},
-  "patient": {
-    "age_group": "child",
-    "age_years": 3,
-    "sex": "male"
-  },
-  "onset_days": 3,
-  "severity": "moderate",
-  "red_flags": [],
-  "treatments_given": ["ORS"],
-  "referral": "health center"
-}
+EXAMPLE:
 
-FILL IN RULES:
-- "value" must be exactly one of: "yes", "no", or "unknown"
-- "evidence_quote" must be an exact word-for-word phrase copied from the note, or null
-- Only set "value" to "yes" if you can provide a real evidence_quote from the note
-- "age_years": extract the number from text like "3yo" = 3, "5 years old" = 5, "2yr" = 2, or null if not mentioned
-- "onset_days": extract from "fever 3 days" = 3, "sick 1 week" = 7, "since yesterday" = 1, or null
-- "age_group": one of infant, child, adolescent, adult, elderly, or unknown
-- "sex": one of male, female, or unknown
-- "severity": one of mild, moderate, severe, or unknown
+Note: "Child 4yr M hot body 2 days coughing no diarrhea gave paracetamol referred clinic"
 
-Return ONLY the JSON. Start your response with {
+Output:
+{"symptoms": {"fever": {"value": "yes", "evidence_quote": "hot body 2 days", "duration": "2 days"}, "cough": {"value": "yes", "evidence_quote": "coughing", "duration": null}, "watery_diarrhea": {"value": "no", "evidence_quote": null, "duration": null}, "bloody_diarrhea": {"value": "unknown", "evidence_quote": null, "duration": null}, "vomiting": {"value": "unknown", "evidence_quote": null, "duration": null}, "rash": {"value": "unknown", "evidence_quote": null, "duration": null}, "difficulty_breathing": {"value": "unknown", "evidence_quote": null, "duration": null}}, "other_symptoms": {}, "patient": {"age_group": "child", "age_years": 4, "sex": "male"}, "onset_days": 2, "severity": "moderate", "red_flags": [], "treatments_given": ["paracetamol"], "referral": "clinic"}
+
+---
+
+Now extract from this note:
+
+Note: "{note_text}"
+
+Output:

@@ -12,22 +12,48 @@ import torch
 # ── JSON parsing ───────────────────────────────────────────────────────────────
 
 def parse_json_response(text: str):
-    """Extract JSON from a model response, handling code fences and extra text."""
+    """Extract JSON from a model response, handling code fences, preamble, and truncation."""
+    if not text or not text.strip():
+        return None
+
+    # Strip common MedGemma preamble patterns
+    cleaned = text.strip()
+    # Remove leading text before the first {
+    brace_idx = cleaned.find("{")
+    if brace_idx > 0:
+        cleaned = cleaned[brace_idx:]
+    # Remove trailing text after the last }
+    rbrace_idx = cleaned.rfind("}")
+    if rbrace_idx >= 0 and rbrace_idx < len(cleaned) - 1:
+        cleaned = cleaned[:rbrace_idx + 1]
+
     for attempt in [
         lambda t: json.loads(t),
         lambda t: json.loads(re.search(r'```(?:json)?\s*\n(.*?)\n```', t, re.DOTALL).group(1)),
         lambda t: json.loads(re.search(r'\{.*\}', t, re.DOTALL).group(0)),
     ]:
         try:
-            return attempt(text)
+            return attempt(cleaned)
         except Exception:
             continue
+
+    # Try fixing truncated JSON (missing closing braces)
+    try:
+        truncated = cleaned
+        open_braces = truncated.count("{") - truncated.count("}")
+        open_brackets = truncated.count("[") - truncated.count("]")
+        if open_braces > 0 or open_brackets > 0:
+            truncated += "]" * open_brackets + "}" * open_braces
+            return json.loads(truncated)
+    except Exception:
+        pass
+
     return None
 
 
 # ── MedGemma inference ─────────────────────────────────────────────────────────
 
-def run_medgemma(prompt: str, model, tokenizer, max_new_tokens: int = 512) -> str:
+def run_medgemma(prompt: str, model, tokenizer, max_new_tokens: int = 1024) -> str:
     """Run a single MedGemma inference with chat template."""
     messages = [{"role": "user", "content": prompt}]
     input_text = tokenizer.apply_chat_template(
@@ -46,7 +72,7 @@ def run_medgemma(prompt: str, model, tokenizer, max_new_tokens: int = 512) -> st
     ).strip()
 
 
-def run_medgemma_batch(prompts: list, model, tokenizer, max_new_tokens: int = 512) -> list:
+def run_medgemma_batch(prompts: list, model, tokenizer, max_new_tokens: int = 1024) -> list:
     """Run multiple prompts in a single GPU batch for ~batch_size x throughput."""
     formatted = [
         tokenizer.apply_chat_template(
@@ -157,33 +183,111 @@ RESPIRATORY_KEYWORDS = [
     "cough", "difficulty breathing", "fast breathing", "rapid breathing",
     "shortness of breath", "chest indrawing", "chest pulling",
     "noisy breathing", "wheezing", "chest tight",
+    "runny nose", "running nose", "sneezing", "sore throat",
 ]
 
 FEVER_KEYWORDS = [
-    "fever", "feverish", "hot body", "high fever", "febrile", "temperature",
+    "fever", "feverish", "hot body", "high fever", "febrile",
 ]
 
 AWD_KEYWORDS = [
     "watery diarrhea", "watery stool", "watery stools", "diarrhoea",
     "loose stool", "loose watery", "running stomach", "rice-water",
     "awd", "cholera",
+    # Reversed word order / separated patterns common in CHW notes
+    "diarrhea watery", "diarrhea profuse watery", "stool watery",
+    "stool very watery", "diarrhea 7x", "diarrhea 8",
 ]
+
+# Negation phrases — if a keyword appears next to these, it's negated
+NEGATION_PREFIXES = [
+    "no ", "not ", "no history of ", "denies ", "without ",
+    "never ", "absent ", "ruled out ",
+]
+
+# Keywords indicating a clear non-respiratory, non-diarrheal presentation
+OTHER_KEYWORDS = [
+    # Skin / dermatology
+    "rash", "wound", "abscess", "pus", "boil", "sore",
+    "scabies", "ringworm", "fungal",
+    # Measles / VPDs
+    "measles", "red eyes", "conjunctivitis",
+    # Malaria (explicit)
+    "rdt positive", "rdt+", "malaria positive", "malaria",
+    # Maternal / reproductive
+    "pregnant", "pregnancy", "anc visit", "antenatal",
+    # Musculoskeletal / surgical
+    "fracture", "broken bone", "fell from", "cannot move",
+    # Chronic / NCD
+    "diabetes", "diabetic", "hypertension", "high bp", "blood pressure",
+    "epilepsy", "hiv",
+    # Urological / STI
+    "painful urination", "dysuria",
+    # GI (non-diarrheal)
+    "stomach pain", "abdominal pain",
+    # Other clear presentations
+    "lump", "weight loss", "night sweat", "swollen legs",
+    "numbness", "blurred vision", "palpitation",
+    "surgery", "hair falling", "joint pain",
+]
+
+
+def _is_negated(keyword: str, note: str) -> bool:
+    """Check if a keyword occurrence in the note is preceded by a negation."""
+    idx = note.find(keyword)
+    while idx >= 0:
+        # Check prefix window
+        prefix_window = note[max(0, idx - 25):idx].strip()
+        is_neg = any(prefix_window.endswith(neg.strip()) for neg in NEGATION_PREFIXES)
+        if not is_neg:
+            return False  # found at least one non-negated occurrence
+        # Look for next occurrence
+        idx = note.find(keyword, idx + 1)
+    return True  # all occurrences are negated (or keyword not found at all)
+
+
+def _has_keyword(keyword: str, note: str) -> bool:
+    """Check if keyword is present AND not negated in the note."""
+    if keyword not in note:
+        return False
+    return not _is_negated(keyword, note)
+
+
+def _has_diarrhea_watery(note: str) -> bool:
+    """Check for watery diarrhea patterns even when words are separated."""
+    # Check standard keyword list first
+    for kw in AWD_KEYWORDS:
+        if _has_keyword(kw, note):
+            return True
+    # Check for 'diarrhea' + 'watery' within the same sentence/phrase
+    if "diarrhea" in note and "watery" in note:
+        d_idx = note.find("diarrhea")
+        w_idx = note.find("watery")
+        if abs(d_idx - w_idx) < 40:  # within ~40 chars of each other
+            return not _is_negated("diarrhea", note)
+    return False
+
 
 def keyword_syndrome_tag(note_text: str) -> dict:
     """
-    Keyword-based syndrome classifier.
-    - respiratory_fever: requires BOTH fever AND a respiratory symptom
-    - acute_watery_diarrhea: any watery diarrhea keyword
-    - other: everything else (including pure fever / malaria-like presentations)
+    Keyword-based syndrome classifier with negation awareness.
+    - respiratory_fever: requires BOTH fever AND a respiratory symptom (non-negated)
+    - acute_watery_diarrhea: watery diarrhea keywords (non-negated)
+    - other: clear non-respiratory, non-diarrheal presentation
+    - unclear: vague symptoms, insufficient info
     """
     note = note_text.lower()
 
-    has_fever = any(kw in note for kw in FEVER_KEYWORDS)
-    resp_hits = [kw for kw in RESPIRATORY_KEYWORDS if kw in note]
-    awd_hits  = [kw for kw in AWD_KEYWORDS if kw in note]
+    has_fever = any(_has_keyword(kw, note) for kw in FEVER_KEYWORDS)
+    resp_hits = [kw for kw in RESPIRATORY_KEYWORDS if _has_keyword(kw, note)]
+    has_awd   = _has_diarrhea_watery(note)
+    awd_hits  = [kw for kw in AWD_KEYWORDS if _has_keyword(kw, note)]
+    if has_awd and not awd_hits:
+        awd_hits = ["diarrhea + watery"]
+    other_hits = [kw for kw in OTHER_KEYWORDS if _has_keyword(kw, note)]
 
     # AWD takes priority if unambiguous
-    if awd_hits and not resp_hits:
+    if has_awd and not resp_hits:
         confidence = "high" if len(awd_hits) >= 2 else "medium"
         return {
             "syndrome_tag":  "acute_watery_diarrhea",
@@ -194,7 +298,7 @@ def keyword_syndrome_tag(note_text: str) -> dict:
 
     # Respiratory fever: MUST have fever + at least one respiratory symptom
     if has_fever and resp_hits:
-        fever_hit = next((kw for kw in FEVER_KEYWORDS if kw in note), "fever")
+        fever_hit = next((kw for kw in FEVER_KEYWORDS if _has_keyword(kw, note)), "fever")
         confidence = "high" if len(resp_hits) >= 2 else "medium"
         return {
             "syndrome_tag":  "respiratory_fever",
@@ -204,7 +308,7 @@ def keyword_syndrome_tag(note_text: str) -> dict:
         }
 
     # AWD that also has respiratory features
-    if awd_hits:
+    if has_awd:
         confidence = "medium"
         return {
             "syndrome_tag":  "acute_watery_diarrhea",
@@ -213,14 +317,23 @@ def keyword_syndrome_tag(note_text: str) -> dict:
             "reasoning":     f"Watery diarrhea keywords present: {', '.join(awd_hits[:3])}.",
         }
 
-    # Fever alone (malaria-like, convulsion, etc.) → other
+    # Fever alone (malaria-like, convulsion, etc.) → "other" with sub-type
     if has_fever:
-        fever_hit = next((kw for kw in FEVER_KEYWORDS if kw in note), "fever")
+        fever_hit = next((kw for kw in FEVER_KEYWORDS if _has_keyword(kw, note)), "fever")
         return {
             "syndrome_tag":  "other",
             "confidence":    "low",
             "trigger_quotes": [fever_hit],
             "reasoning":     "Fever present but no respiratory or diarrheal symptoms — likely non-specific febrile illness.",
+        }
+
+    # Clear non-fever, non-respiratory, non-diarrheal presentation → "other"
+    if other_hits:
+        return {
+            "syndrome_tag":  "other",
+            "confidence":    "low",
+            "trigger_quotes": other_hits[:3],
+            "reasoning":     f"Non-syndromic presentation with keywords: {', '.join(other_hits[:3])}.",
         }
 
     return {
@@ -354,8 +467,15 @@ def process_note(
     # ── LLM extraction ────────────────────────────────────────────────────────
     prompt = combined_prompt.replace("{note_text}", note_text)
     try:
-        raw = run_medgemma(prompt, model, tokenizer, max_new_tokens=512)
+        raw = run_medgemma(prompt, model, tokenizer, max_new_tokens=1024)
         parsed = parse_json_response(raw) or {}
+        # Diagnostic logging for smoke test
+        print(f"\n  📋 DIAGNOSTIC — raw MedGemma output ({len(raw)} chars):")
+        print(f"  ---BEGIN---\n{raw[:600]}\n  ---END---")
+        syms = parsed.get("symptoms", {})
+        yes_count = sum(1 for v in syms.values() if isinstance(v, dict) and v.get("value") == "yes")
+        print(f"  Parsed keys: {list(parsed.keys()) if parsed else '(empty)'}")
+        print(f"  Symptoms: {yes_count} 'yes' / {len(syms)} total")
     except Exception as e:
         result["errors"].append(f"generation_error: {e}")
         parsed = {}
@@ -471,7 +591,7 @@ def process_notes_batch(
     model,
     tokenizer,
     batch_size: int = 4,
-    max_new_tokens: int = 512,
+    max_new_tokens: int = 1024,
 ) -> list:
     """
     Process multiple CHW notes in parallel GPU batches.
@@ -484,6 +604,7 @@ def process_notes_batch(
     results = []
     total   = len(notes)
     t_start = time.time()
+    _logged_first = False
 
     for i in range(0, total, batch_size):
         batch     = notes[i : i + batch_size]
@@ -501,12 +622,29 @@ def process_notes_batch(
 
         for raw, note in zip(raw_outputs, batch):
             parsed = parse_json_response(raw) or {}
+
+            # Diagnostic: log the first raw output to help debug extraction issues
+            if not _logged_first:
+                _logged_first = True
+                print(f"\n  📋 DIAGNOSTIC — first raw MedGemma output ({len(raw)} chars):")
+                print(f"  ---BEGIN---\n{raw[:800]}\n  ---END---")
+                print(f"  Parsed keys: {list(parsed.keys()) if parsed else '(empty)'}")
+                syms = parsed.get("symptoms", {})
+                yes_count = sum(1 for v in syms.values() if isinstance(v, dict) and v.get("value") == "yes")
+                print(f"  Symptoms extracted: {yes_count} 'yes' / {len(syms)} total\n")
+
             results.append(_build_result(parsed, note, t0))
 
         elapsed = time.time() - t_start
         done    = min(i + batch_size, total)
         rate    = elapsed / done
+        # Per-batch extraction quality stats
+        batch_results = results[i:done]
+        ok = sum(1 for r in batch_results
+                 if any(v.get("value") == "yes"
+                        for v in r["encounter"]["symptoms"].values()))
         print(f"  Batch {i//batch_size + 1}: notes {i+1}–{done}/{total}  "
-              f"({time.time()-t0:.1f}s batch)  |  avg {rate:.1f}s/note")
+              f"({time.time()-t0:.1f}s batch)  |  avg {rate:.1f}s/note  "
+              f"|  {ok}/{len(batch_results)} notes with ≥1 extracted symptom")
 
     return results

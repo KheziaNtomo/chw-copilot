@@ -76,6 +76,25 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ── Model Loading ────────────────────────────────────────────
+# Attempt to load MedGemma once on app startup
+import os
+if not os.getenv("HF_TOKEN"):
+    try:
+        hf_token = st.secrets.get("HF_TOKEN")
+        if hf_token:
+            os.environ["HF_TOKEN"] = hf_token
+    except Exception:
+        pass
+
+# Try loading model (safe — returns False if no GPU/token)
+try:
+    from src.models import try_load_model, is_model_available, get_load_error
+    if not is_model_available():
+        try_load_model()
+except Exception:
+    pass
+
 # ── Sidebar ──────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("""
@@ -94,12 +113,40 @@ with st.sidebar:
 
     st.markdown("---")
 
+    # Model status
+    try:
+        model_active = is_model_available()
+    except Exception:
+        model_active = False
+
+    if model_active:
+        st.markdown(
+            '<div style="background:#2d4a2d;border-radius:6px;padding:0.5rem 0.75rem;margin-bottom:0.75rem;">'
+            '<span style="color:#8de68d;font-size:0.8rem;font-weight:600;">● MedGemma Active</span><br>'
+            '<span style="color:#6ca86c;font-size:0.7rem;">Live extraction & tagging</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        error_msg = ""
+        try:
+            error_msg = get_load_error() or ""
+        except Exception:
+            pass
+        st.markdown(
+            '<div style="background:#4a3a2d;border-radius:6px;padding:0.5rem 0.75rem;margin-bottom:0.75rem;">'
+            '<span style="color:#e6c88d;font-size:0.8rem;font-weight:600;">○ Demo Mode</span><br>'
+            '<span style="color:#a8946c;font-size:0.7rem;">Pre-computed results only</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
     # Pipeline info
     st.markdown("### Pipeline Agents")
     agents = [
-        ("Encounter Extractor",    "MedGemma 4b"),
+        ("Encounter Extractor",    "MedGemma 4b" if model_active else "Rule-based"),
         ("Evidence Grounder",       "Deterministic"),
-        ("Syndrome Tagger",         "Keyword rules"),
+        ("Syndrome Tagger",         "MedGemma" if model_active else "Keyword rules"),
         ("Sub-syndrome Classifier", "Rule-based"),
         ("ICCM Recommendations",   "Rule-based"),
         ("Schema Validator",        "Deterministic"),
@@ -118,8 +165,7 @@ with st.sidebar:
         'Not for clinical diagnosis.<br>'
         'Surveillance support tool only.<br>'
         'All outputs require human verification.<br><br>'
-        'Privacy-by-design · Offline-first<br>'
-        'Powered by MedGemma 4b'
+        'Powered by MedGemma 1.5 4B-IT'
         '</div>',
         unsafe_allow_html=True,
     )
