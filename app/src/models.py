@@ -1,13 +1,8 @@
 """Model loading and management for MedGemma.
 
-Lazy-loads MedGemma model using the CausalLM API
-(AutoModelForCausalLM + AutoTokenizer). Caches it so it is
-only loaded once per session regardless of how many calls are made.
-
-MedGemma uses AutoTokenizer (not AutoTokenizer) and
-AutoModelForCausalLM (not AutoModelForCausalLM).
-
-On HF Spaces / Kaggle, uses 4-bit NF4 quantisation to fit in T4 16GB.
+Lazy-loads MedGemma model using AutoModelForImageTextToText + AutoProcessor.
+Caches it so it is only loaded once per session regardless of how many calls
+are made. Uses bfloat16 precision (~8GB VRAM on T4).
 """
 import json
 import os
@@ -40,7 +35,7 @@ def _load_medgemma():
         _load_error = "No GPU available — running in offline mode"
         raise RuntimeError(_load_error)
 
-    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from transformers import AutoModelForImageTextToText, AutoProcessor
 
     # Resolve HF token: env > config
     hf_token = config.HF_TOKEN or os.getenv("HF_TOKEN")
@@ -60,39 +55,17 @@ def _load_medgemma():
     print(f"Loading MedGemma model: {config.MEDGEMMA_MODEL}")
 
     # Processor
-    _medgemma_tokenizer = AutoTokenizer.from_pretrained(
+    _medgemma_tokenizer = AutoProcessor.from_pretrained(
         config.MEDGEMMA_MODEL,
-        trust_remote_code=True,
         token=hf_token,
     )
 
-    # Model — with optional 4-bit quantisation
-    model_kwargs = {
-        "trust_remote_code": True,
-        "device_map": config.MEDGEMMA_DEVICE,
-        "token": hf_token,
-    }
-
-    if config.USE_4BIT:
-        try:
-            from transformers import BitsAndBytesConfig
-            model_kwargs["quantization_config"] = BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_quant_type="nf4",
-                bnb_4bit_compute_dtype=torch.bfloat16,
-            )
-            print("  Using 4-bit NF4 quantisation")
-        except ImportError:
-            print("  ⚠️  bitsandbytes not available, loading in bfloat16")
-            model_kwargs["torch_dtype"] = torch.bfloat16
-    else:
-        model_kwargs["torch_dtype"] = (
-            torch.bfloat16 if torch.cuda.is_available() else torch.float32
-        )
-
-    _medgemma_model = AutoModelForCausalLM.from_pretrained(
+    # Model — bfloat16 (~8GB VRAM)
+    _medgemma_model = AutoModelForImageTextToText.from_pretrained(
         config.MEDGEMMA_MODEL,
-        **model_kwargs,
+        dtype=torch.bfloat16,
+        device_map=config.MEDGEMMA_DEVICE,
+        token=hf_token,
     )
     _medgemma_model.eval()
     print(f"MedGemma loaded on {next(_medgemma_model.parameters()).device}")
@@ -123,7 +96,7 @@ def try_load_model() -> bool:
 def generate_medgemma(prompt: str, max_tokens: int = None) -> str:
     """Run MedGemma generation with a text prompt.
 
-    Uses the chat template format via AutoTokenizer for MedGemma.
+    Uses the chat template format via AutoProcessor for MedGemma.
     """
     import torch
 
