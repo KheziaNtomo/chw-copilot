@@ -1,0 +1,21 @@
+{
+  "week_id": 5,
+  "generated_by": "template",
+  "narrative": "Week 5 Situation Report — CHW Copilot Syndromic Surveillance\n\nALERT: Respiratory fever cases at Kibera Health Post (loc_01) have surged to 12, 3.2x above the 4-week baseline mean of 3.75. This exceeds the alert threshold and warrants immediate investigation.\n\nAcute watery diarrhea remains within normal range across all locations.\n\nRecommended actions:\n1. Deploy additional CHWs to loc_01 for active case finding\n2. Ensure respiratory infection treatment supplies at loc_01 health center\n3. Investigate potential common exposure source\n4. Continue monitoring loc_02 for spillover",
+  "alerts": [
+    {
+      "severity": "high",
+      "location": "loc_01",
+      "location_name": "Kibera Health Post",
+      "syndrome": "respiratory_fever",
+      "current_count": 12,
+      "baseline_mean": 3.75,
+      "ratio": 3.2,
+      "message": "12 cases (3.2x baseline) — investigate immediately"
+    }
+  ],
+  "weekly_totals": {
+    "respiratory_fever": 15,
+    "acute_watery_diarrhea": 3
+  }
+}
