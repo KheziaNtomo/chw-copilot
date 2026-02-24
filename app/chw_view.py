@@ -455,21 +455,21 @@ def render_chw_view():
                 is_med = rec.startswith("💊") or rec.startswith("💧")
                 is_info = rec.startswith("🌡") or rec.startswith("📋")
                 if is_urgent:
-                    bg = "rgba(239,68,68,0.18)"
-                    border = "#ef4444"
-                    text_color = "#fecaca"
+                    bg = "rgba(220,38,38,0.12)"
+                    border = "#dc2626"
+                    text_color = "#7f1d1d"
                 elif is_med:
-                    bg = "rgba(34,197,94,0.12)"
-                    border = "#22c55e"
-                    text_color = "#bbf7d0"
+                    bg = "rgba(22,163,74,0.10)"
+                    border = "#16a34a"
+                    text_color = "#14532d"
                 elif is_info:
-                    bg = "rgba(59,130,246,0.12)"
-                    border = "#3b82f6"
-                    text_color = "#bfdbfe"
+                    bg = "rgba(37,99,235,0.08)"
+                    border = "#2563eb"
+                    text_color = "#1e3a5f"
                 else:
-                    bg = "rgba(148,163,184,0.12)"
+                    bg = "rgba(71,85,105,0.08)"
                     border = "#64748b"
-                    text_color = "#e2e8f0"
+                    text_color = "#1e293b"
                 st.markdown(
                     f'<div style="background:{bg};border-left:3px solid {border};'
                     f'padding:0.5rem 0.75rem;margin-bottom:0.4rem;border-radius:4px;'
@@ -493,10 +493,10 @@ def render_chw_view():
         )
         for i, question in enumerate(checklist, 1):
             st.markdown(
-                f'<div style="background:rgba(90,122,74,0.12);border-left:3px solid #5a7a4a;'
+                f'<div style="background:rgba(90,122,74,0.10);border-left:3px solid #5a7a4a;'
                 f'padding:0.5rem 0.75rem;margin-bottom:0.35rem;border-radius:4px;'
-                f'font-size:0.88rem;line-height:1.5;color:#d4e4c4;">'
-                f'<strong style="color:#a0c890;">{i}.</strong> {question}</div>',
+                f'font-size:0.88rem;line-height:1.5;color:#2d3b1e;">'
+                f'<strong style="color:#3d5a2e;">{i}.</strong> {question}</div>',
                 unsafe_allow_html=True,
             )
 
