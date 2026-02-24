@@ -27,7 +27,7 @@ NARRATIVE_TAG = "<!-- CHW_COPILOT_NARRATIVE -->"
 TITLE_BANNER = f"""{NARRATIVE_TAG}
 # CHW Copilot — MedGemma Clinical Pipeline
 
-> **MedGemma Impact Challenge** | MedGemma-4b-it (4-bit NF4) | [GitHub](https://github.com/KheziaNtomo/chw-copilot)
+> **MedGemma Impact Challenge** | MedGemma-4b-it (bfloat16) | [GitHub](https://github.com/KheziaNtomo/chw-copilot)
 
 Uses MedGemma to extract structured encounters from Community Health Worker notes for syndromic surveillance and outbreak detection.
 
@@ -88,7 +88,7 @@ CHW note → [1] MedGemma Extractor → [2] Evidence Grounder → [3] Hallucinat
          → Structured encounter + alerts + surveillance aggregates
 ```
 
-**Why MedGemma:** Medical pre-training handles CHW shorthand (e.g., "hot body" = fever, "rice-water stool" = cholera-like AWD) that general LLMs miss. Open-weight, 4-bit quantisable, suitable for edge deployment."""
+**Why MedGemma:** Medical pre-training handles CHW shorthand (e.g., "hot body" = fever, "rice-water stool" = cholera-like AWD) that general LLMs miss. Open-weight, bfloat16isable, suitable for edge deployment."""
 
 METRICS_LIMITATIONS = f"""{NARRATIVE_TAG}
 <a id="5-metrics-limitations"></a>
@@ -97,7 +97,7 @@ METRICS_LIMITATIONS = f"""{NARRATIVE_TAG}
 | Metric | Value |
 |--------|-------|
 | Syndrome tag accuracy | 95% (keyword tagger, 60-note gold set) |
-| Processing time | ~1 min/note (T4 GPU, 4-bit NF4) |
+| Processing time | ~1 min/note (T4 GPU, bfloat16) |
 | Schema validation | 100% pass rate |
 
 **Limitations:** multilingual shorthand is the weakest mode; temporal reasoning across multi-visit notes can confuse onset anchoring; model adaptation is population-specific (HAI-DEF guidance emphasises validation before deployment).

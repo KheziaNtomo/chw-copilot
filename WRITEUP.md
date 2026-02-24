@@ -56,12 +56,12 @@ I built CHW Copilot as an agentic pipeline where **MedGemma 4B-IT** serves as th
 | Metric | Value |
 |--------|-------|
 | Syndrome tag accuracy (keyword fallback) | 95.0% (57/60 gold-standard encounters) |
-| Processing time per note | ~1 minute (T4 GPU, 4-bit NF4 quantisation) |
-| Model | MedGemma 4B-IT, 4-bit NF4 via bitsandbytes (~5GB VRAM) |
+| Processing time per note | ~1 minute (T4 GPU, bfloat16 precision) |
+| Model | MedGemma 4B-IT, bfloat16 (~8GB VRAM) |
 
 **Anomaly detection**: Several approaches exist in public health surveillance — z-scoring, CUSUM (cumulative sum for sustained shifts), EWMA (exponentially weighted average for seasonal adaptation), Poisson/negative binomial regression, and the Farrington algorithm (used by ECDC with quasi-Poisson trend adjustment). For this demonstration, I used simple z-scoring (count vs. 4-week rolling baseline, threshold 3.0) because it is transparent and familiar to district health officers working with DHIS2. A production system would use Farrington or CUSUM for higher specificity.
 
-**Demonstration deployment**: Streamlit web application on Hugging Face Spaces with a T4-small GPU. MedGemma loads in 4-bit NF4 quantisation. The app auto-detects whether a GPU and model are available — when deployed on HF Spaces, it runs MedGemma live; without GPU, it falls back to deterministic rules with pre-computed demo cases.
+**Demonstration deployment**: Streamlit web application on Hugging Face Spaces with a T4-small GPU. MedGemma loads in bfloat16 precision. The app auto-detects whether a GPU and model are available — when deployed on HF Spaces, it runs MedGemma live; without GPU, it falls back to deterministic rules with pre-computed demo cases.
 
 **Real-world deployment considerations**: The HF Spaces demo validates the core pipeline. A production deployment would use an Android app with integration into CHT or DHIS2 workflows. Input modalities would expand beyond typed text to include **scanned handwritten notes** (on-device OCR via Google ML Kit) and **voice recordings** (speech-to-text via Whisper or Google Speech API with local language support). MedGemma's tolerance for noisy, informal text makes it well-suited for OCR and speech-to-text outputs.
 

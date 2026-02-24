@@ -76,7 +76,7 @@
 
 **[Screen: Architecture slide or back to app showing model status]**
 
-> "The demo runs on Hugging Face Spaces with a T4 GPU. MedGemma loads in 4-bit quantisation — about 5 gigabytes of VRAM. Each note processes in roughly one minute.
+> "The demo runs on Hugging Face Spaces with a T4 GPU. MedGemma loads in bfloat16 precision — about 8 gigabytes of VRAM. Each note processes in roughly one minute.
 >
 > For real-world deployment, the model would run on-device on an Android app — CHWs get immediate clinical feedback, red-flag alerts, and treatment recommendations even without connectivity. Structured encounters sync to the district server when connectivity returns. This is the same 'process locally, aggregate centrally' pattern that DHIS2 mobile already uses.
 >
@@ -109,7 +109,7 @@
 | Effective use of HAI-DEF models (20%) | Section 2 + 3: MedGemma vs alternatives, agentic multi-agent usage |
 | Problem domain (15%) | Section 1: storytelling, mortality stats, user journey |
 | Impact potential (15%) | Section 1 + 4: weeks→minutes, outbreak detection, population reach |
-| Product feasibility (20%) | Section 3 + 5: live demo, 4-bit quant, deployment plan |
+| Product feasibility (20%) | Section 3 + 5: live demo, bfloat16, deployment plan |
 | Execution & communication (30%) | Overall: polished narrative, live app, clear structure |
 
 ## Tracks
