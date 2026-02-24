@@ -387,7 +387,16 @@ def generate_recommendations(encounter: dict, syndrome_tag: str) -> list:
     recs = []
     sym = encounter.get("symptoms", {})
     note = encounter.get("note_text", "").lower()
-    red_flags = [rf.lower() for rf in encounter.get("red_flags", [])]
+    # red_flags may be strings (from LLM) or dicts (from keyword fallback)
+    raw_flags = encounter.get("red_flags", [])
+    red_flags = []
+    for rf in raw_flags:
+        if isinstance(rf, dict):
+            red_flags.append(rf.get("flag", "").lower())
+        elif isinstance(rf, str):
+            red_flags.append(rf.lower())
+        else:
+            red_flags.append(str(rf).lower())
     age_years = encounter.get("patient", {}).get("age_years")
 
     has_fever   = sym.get("fever", {}).get("value") == "yes"
