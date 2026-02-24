@@ -81,7 +81,7 @@ def normalise_other_symptoms(raw: dict, note_lower: str) -> dict:
         out[k] = c
     return out
 
-def normalise_patient(raw: dict) -> dict:
+def normalise_patient(raw: dict, note_text: str = "") -> dict:
     if not isinstance(raw, dict):
         raw = {}
     age_group = str(raw.get("age_group", "unknown")).lower().strip()
@@ -90,15 +90,25 @@ def normalise_patient(raw: dict) -> dict:
     sex = str(raw.get("sex", "unknown")).lower().strip()
     if sex not in ("male", "female"):
         sex = "unknown"
+
+    # Try LLM-extracted value first, then regex fallback from note text
     age_years = raw.get("age_years")
     try:
         age_years = int(age_years) if age_years else None
     except (ValueError, TypeError):
         age_years = None
+
+    if age_years is None and note_text:
+        # Match patterns: 3yo, 3yr, 3 yr, 3 years, 3-year-old, 3 year old
+        m = re.search(r'\b(\d{1,3})\s*(?:yo|yr|year[s]?(?:\s*old)?|-year-old)\b', note_text, re.IGNORECASE)
+        if m:
+            age_years = int(m.group(1))
+
     patient = {"age_group": age_group, "sex": sex}
     if age_years is not None:
         patient["age_years"] = age_years
     return patient
+
 
 
 # ── Syndrome tagging (fast keyword classifier) ─────────────────────────────────
@@ -183,7 +193,7 @@ def process_note(
         "week_id":         week_id,
         "note_text":       note_text,
         "chw_id":          str(enc_raw.get("chw_id", "unknown")),
-        "patient":         normalise_patient(enc_raw.get("patient", {})),
+        "patient":         normalise_patient(enc_raw.get("patient", {}), note_text),
         "symptoms":        normalise_symptoms(enc_raw.get("symptoms", {}), note_lower),
         "other_symptoms":  normalise_other_symptoms(enc_raw.get("other_symptoms", {}), note_lower),
         "onset_days":      onset,
