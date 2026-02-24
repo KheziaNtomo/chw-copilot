@@ -37,9 +37,16 @@ def parse_json_response(text: str):
         except Exception:
             continue
 
-    # Try fixing truncated JSON (missing closing braces)
+    # Try fixing truncated JSON (missing closing braces, mid-string cuts)
     try:
         truncated = cleaned
+        # If cut mid-string, close the string first
+        quote_count = truncated.count('"') - truncated.count('\\"')
+        if quote_count % 2 == 1:
+            truncated += '"'
+        # Remove trailing incomplete key-value (e.g. "treat cut mid-word)
+        truncated = re.sub(r',\s*"[^"]*$', '', truncated)
+        truncated = re.sub(r',\s*$', '', truncated)
         open_braces = truncated.count("{") - truncated.count("}")
         open_brackets = truncated.count("[") - truncated.count("]")
         if open_braces > 0 or open_brackets > 0:
@@ -53,7 +60,7 @@ def parse_json_response(text: str):
 
 # ── MedGemma inference ─────────────────────────────────────────────────────────
 
-def run_medgemma(prompt: str, model, tokenizer, max_new_tokens: int = 1024) -> str:
+def run_medgemma(prompt: str, model, tokenizer, max_new_tokens: int = 2048) -> str:
     """Run a single MedGemma inference with chat template.
 
     Uses AutoProcessor.apply_chat_template(tokenize=True) as per the
@@ -83,7 +90,7 @@ def run_medgemma(prompt: str, model, tokenizer, max_new_tokens: int = 1024) -> s
     ).strip()
 
 
-def run_medgemma_batch(prompts: list, model, tokenizer, max_new_tokens: int = 1024) -> list:
+def run_medgemma_batch(prompts: list, model, tokenizer, max_new_tokens: int = 2048) -> list:
     """Run multiple prompts sequentially for reliable output."""
     results = []
     for p in prompts:
@@ -723,7 +730,7 @@ def process_notes_batch(
     model,
     tokenizer,
     batch_size: int = 4,
-    max_new_tokens: int = 1024,
+    max_new_tokens: int = 2048,
 ) -> list:
     """
     Process multiple CHW notes in parallel GPU batches.
