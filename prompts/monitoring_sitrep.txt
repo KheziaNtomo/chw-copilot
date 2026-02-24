@@ -28,4 +28,4 @@ WEEKLY COUNTS:
 
 REPORT WEEK: {report_week}
 
-Return ONLY the JSON object. No explanation, no markdown.
+Return ONLY the JSON object. No explanation, no markdown. Start your response with {
