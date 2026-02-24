@@ -10,15 +10,17 @@
 
 ## SECTION 1 — THE PROBLEM (0:00 – 0:40)
 
-**[Screen: Title slide → transition to statistics/map visual]**
+**[Screen: Title slide → transition to statistics visual]**
 
-> "Every day, 3.8 million community health workers across 98 countries visit patients in their homes. They document what they see in shorthand notes — *child 3 years old, fever, cough, rash, not eating.*
+> "When an outbreak starts, the first people to see it aren't doctors in hospitals — they're community health workers going door to door in villages and urban slums. There are 3.8 million of them across 98 countries, and collectively they are the largest and earliest source of disease signals in the world.
 >
-> These notes contain the earliest signals of outbreaks — cholera clusters, pneumonia spikes, measles waves. But they're trapped on paper. They can't be aggregated, they can't be analysed, and they can't trigger alerts.
+> But their observations are written as shorthand paper notes — *'child 3 years, fever, cough, not eating.'* These notes never reach surveillance systems in time. In Uganda, less than half of weekly disease reports arrive by the deadline.
 >
-> The result: in Uganda, only 44% of weekly disease reports arrive on time. Cholera kills because clusters are detected on day 14, not day 2. Pneumonia is the leading infectious killer of children — 740,000 deaths a year — partly because danger signs go unrecognised until it's too late.
+> Why does speed matter? Because with cholera, detecting a cluster on day 2 versus day 14 can be the difference between 50 cases and 5,000. With pneumonia — the leading infectious killer of children — recognising a danger sign like chest indrawing triggers immediate referral that saves lives.
 >
-> CHW Copilot fixes this. It uses MedGemma to transform unstructured CHW notes into structured, evidence-grounded surveillance signals — in about one minute."
+> We know this is solvable. Nigeria piloted an electronic disease surveillance system and saw reporting timeliness jump from 43% to 73%. Eighty percent of verified outbreak alerts came from the electronic sites. The bottleneck isn't the CHWs — it's the gap between their observations and the structured data that surveillance systems need.
+>
+> CHW Copilot closes that gap. It uses MedGemma to read a raw field note and produce a structured, evidence-grounded encounter — in about one minute."
 
 ---
 
