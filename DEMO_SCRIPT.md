@@ -18,7 +18,7 @@
 >
 > Why does speed matter? Because with cholera, detecting a cluster on day 2 versus day 14 can be the difference between 50 cases and 5,000. With pneumonia — the leading infectious killer of children — recognising a danger sign like chest indrawing triggers immediate referral that saves lives.
 >
-> We know this is solvable. Nigeria piloted an electronic disease surveillance system and saw reporting timeliness jump from 43% to 73%. Eighty percent of verified outbreak alerts came from the electronic sites. The bottleneck isn't the CHWs — it's the gap between their observations and the structured data that surveillance systems need.
+> We know this is solvable. Nigeria piloted an electronic disease surveillance system and saw reporting timeliness jump from 43% to 73%. Eighty percent of verified outbreak alerts came from the electronic sites. And just this month, a study published in *Nature Health* evaluated LLMs supporting 101 community health workers in Rwanda — LLMs outperformed local clinicians on every single quality metric, at one five-hundredth of the cost. The bottleneck isn't the CHWs — it's the gap between their observations and the structured data that surveillance systems need.
 >
 > CHW Copilot closes that gap. It uses MedGemma to read a raw field note and produce a structured, evidence-grounded encounter — in about one minute."
 
@@ -82,7 +82,7 @@
 >
 > Future input modalities would include scanning handwritten registers with OCR and processing voice recordings — MedGemma handles the noisy output from both.
 >
-> CHW Copilot demonstrates that a small, on-device medical model — embedded in a well-designed agentic pipeline — can turn unstructured field notes into actionable surveillance intelligence. It addresses a critical gap in global health infrastructure, and it does it with an open model that anyone can deploy."
+> CHW Copilot demonstrates that a small, on-device medical model — embedded in a well-designed agentic pipeline — can turn unstructured field notes into actionable surveillance intelligence. A peer-reviewed study this month in *Nature Health* confirmed that LLMs can deliver higher-quality clinical advice to CHWs than local clinicians, at a fraction of the cost. CHW Copilot takes this further — from answering individual questions to processing entire encounter notes into structured surveillance data at scale. It addresses a critical gap in global health infrastructure, and it does it with an open model that anyone can deploy."
 
 **[Screen: Title slide with links]**
 
