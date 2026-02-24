@@ -1,16 +1,29 @@
 # CHW Copilot — 3-Minute Video Script
 
-> **Format:** Recorded screen + slides with voiceover
+> **Format:** Screen recording (OBS/Loom) + voiceover — no face cam needed
 > **Audience:** Google Research judges (MedGemma Impact Challenge)
 > **Tone:** Confident, clear, evidence-driven. This is a pitch, not a tutorial.
 > **Tracks:** Main Track + Agentic Workflow Prize
+> **Timed read:** ~2:50 — leaves ~10s buffer for transitions
 > **Key reminder:** "Less is more" — the video conveys concepts, the write-up has the detail.
+
+---
+
+## Pre-Recording Checklist
+
+- [ ] Streamlit app running and loaded (HF Spaces or local) — HF URL visible in browser bar
+- [ ] Demo case pre-selected (severe pneumonia, 11-month-old)
+- [ ] District Dashboard tab ready with Kibera Health Post visible
+- [ ] Browser zoom at 150%, terminal font large — judges watch on small screens
+- [ ] 2–3 slides ready: title, stats, pipeline diagram, closing with links
+- [ ] Quiet room, headset mic or external mic
+- [ ] OBS/Loom set to capture browser window only (no desktop chrome)
 
 ---
 
 ## SECTION 1 — THE PROBLEM (0:00 – 0:40)
 
-**[Screen: Title slide → transition to statistics visual]**
+**🖥️ ON SCREEN:** Title slide (green gradient, project name, team, track) → fade to stats slide (3.8M CHWs, 44% timeliness, cholera 50→5000 stat). 2–3 clean slides, not cluttered.
 
 > "When an outbreak starts, the first people to see it aren't doctors in hospitals — they're community health workers going door to door in villages and urban slums. There are 3.8 million of them across 98 countries, and collectively they are the largest and earliest source of disease signals in the world.
 >
@@ -26,7 +39,7 @@
 
 ## SECTION 2 — WHY MEDGEMMA (0:40 – 1:10)
 
-**[Screen: Show a raw CHW note → MedGemma extraction output side by side]**
+**🖥️ ON SCREEN:** Split view — raw CHW note (messy shorthand) on left, clean MedGemma JSON output on right. This is the "wow" moment. Can use a static screenshot from the Streamlit app or notebook output.
 
 > "Why MedGemma, specifically? These notes are messy, abbreviated, and full of clinical shorthand. *'Hot body'* means fever. *'Pulling in of chest'* means chest indrawing — a WHO danger sign. *'Rice-water stool'* means cholera-like diarrhoea.
 >
@@ -38,7 +51,7 @@
 
 ## SECTION 3 — THE AGENTIC PIPELINE (1:10 – 1:40)
 
-**[Screen: Pipeline diagram → then live Streamlit app demo]**
+**🖥️ ON SCREEN:** Pipeline diagram slide (~10s) showing the 6-agent flow → then cut to live Streamlit app. Click pre-selected demo case. Show extraction result, evidence highlights, syndrome tag, agent trace. Use cursor to circle key outputs.
 
 > "The pipeline isn't a single model call — it's an agentic workflow with multiple specialised steps.
 >
@@ -48,7 +61,7 @@
 >
 > This multi-agent design is the safety architecture. No single model output reaches the surveillance layer without verification."
 
-**[Screen: Show the Streamlit app — click a demo case, show the extraction, evidence highlights, syndrome tag, agent trace]**
+**🖥️ ON SCREEN:** Streamlit app — demo case already processed (no waiting for inference on camera). Slowly scroll through the extraction output.
 
 > "Here's this running live. I'll process a severe pneumonia case — an 11-month-old with fever, cough, and chest indrawing. Watch how the pipeline identifies three danger signs and recommends immediate referral."
 
@@ -56,7 +69,7 @@
 
 ## SECTION 4 — OUTBREAK DETECTION (1:40 – 2:20)
 
-**[Screen: Switch to District Dashboard in Streamlit]**
+**🖥️ ON SCREEN:** Switch to District Dashboard tab. Let it breathe — this is the strongest visual. Slowly scroll through trend lines. Use cursor to circle the spike at week 7. Then scroll to SITREP.
 
 > "But the real impact isn't processing one note — it's what happens when you aggregate hundreds of structured encounters across a district.
 >
@@ -66,15 +79,15 @@
 >
 > The system also generates a SITREP — a situation report explaining what the syndrome covers, what could be causing it, and what actions to take. This goes directly to the district health officer."
 
-**[Scroll to show SITREP]**
+**🖥️ ON SCREEN:** Scroll down to the SITREP section. Pause briefly so judges can read the top line.
 
 > "This takes outbreak detection from *weeks of manual tally review* to *same-day automated alerts.*"
 
 ---
 
-## SECTION 5 — FEASIBILITY AND CLOSE (2:20 – 3:00)
+## SECTION 5 — FEASIBILITY AND CLOSE (2:20 – 2:50)
 
-**[Screen: Architecture slide or back to app showing model status]**
+**🖥️ ON SCREEN:** Closing slide — key numbers (bfloat16, ~8GB VRAM, ~26s/note, 85% accuracy), deployment plan summary, GitHub + HF Spaces links. Keep it clean.
 
 > "The demo runs on Hugging Face Spaces with a T4 GPU. MedGemma loads in bfloat16 precision — about 8 gigabytes of VRAM. Each note processes in roughly 26 seconds.
 >
@@ -84,21 +97,33 @@
 >
 > CHW Copilot demonstrates that a small, on-device medical model — embedded in a well-designed agentic pipeline — can turn unstructured field notes into actionable surveillance intelligence. A peer-reviewed study this month in *Nature Health* confirmed that LLMs can deliver higher-quality clinical advice to CHWs than local clinicians, at a fraction of the cost. CHW Copilot takes this further — from answering individual questions to processing entire encounter notes into structured surveillance data at scale. It addresses a critical gap in global health infrastructure, and it does it with an open model that anyone can deploy."
 
-**[Screen: Title slide with links]**
+**🖥️ ON SCREEN:** Title slide — "Thank you" + GitHub link + HF Spaces link
 
 > "Thank you."
 
 ---
 
+## Production Tips
+
+1. **Pre-load everything** — app running, demo case processed, dashboard loaded. No waiting on camera.
+2. **Highlight with cursor** — slowly circle key numbers/outputs as you mention them (the spike, the SITREP, the danger signs).
+3. **No live typing** — everything pre-computed, you're just clicking and scrolling through results.
+4. **Show the live URL** — HF Spaces URL visible in the browser bar proves it's deployed and running.
+5. **Simple transitions** — fade or hard cut between slides and screen recording. Don't waste time on effects.
+6. **Audio first** — record voiceover separately if possible, then screen-record visuals to match. Consistent volume > mic quality.
+7. **If you fumble** — keep going. Cut it in post. One clean take per section is easier than one perfect take for the whole video.
+
+---
+
 ## Timing Reference
 
-| Section | Focus | Duration | Cumulative |
-|---------|-------|----------|------------|
-| The Problem | Problem domain + impact stats | 40s | 0:40 |
-| Why MedGemma | HAI-DEF model usage + comparison | 30s | 1:10 |
-| Agentic Pipeline | Workflow + live demo | 30s | 1:40 |
-| Outbreak Detection | Dashboard + anomaly detection | 40s | 2:20 |
-| Feasibility & Close | Deployment + future + impact | 40s | 3:00 |
+| Section | Focus | Screen | Duration | Cumulative |
+|---------|-------|--------|----------|------------|
+| The Problem | Problem domain + impact stats | Title + stats slides | 40s | 0:40 |
+| Why MedGemma | HAI-DEF model usage + comparison | Raw note ↔ JSON split view | 30s | 1:10 |
+| Agentic Pipeline | Workflow + live demo | Pipeline diagram → Streamlit app | 30s | 1:40 |
+| Outbreak Detection | Dashboard + anomaly detection | District Dashboard + SITREP | 40s | 2:20 |
+| Feasibility & Close | Deployment + future + impact | Closing slide with metrics + links | 30s | 2:50 |
 
 ---
 
