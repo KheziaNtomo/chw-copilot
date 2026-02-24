@@ -90,25 +90,15 @@ def normalise_patient(raw: dict, note_text: str = "") -> dict:
     sex = str(raw.get("sex", "unknown")).lower().strip()
     if sex not in ("male", "female"):
         sex = "unknown"
-
-    # Try LLM-extracted value first, then regex fallback from note text
     age_years = raw.get("age_years")
     try:
         age_years = int(age_years) if age_years else None
     except (ValueError, TypeError):
         age_years = None
-
-    if age_years is None and note_text:
-        # Match patterns: 3yo, 3yr, 3 yr, 3 years, 3-year-old, 3 year old
-        m = re.search(r'\b(\d{1,3})\s*(?:yo|yr|year[s]?(?:\s*old)?|-year-old)\b', note_text, re.IGNORECASE)
-        if m:
-            age_years = int(m.group(1))
-
     patient = {"age_group": age_group, "sex": sex}
     if age_years is not None:
         patient["age_years"] = age_years
     return patient
-
 
 
 # ── Syndrome tagging (fast keyword classifier) ─────────────────────────────────
@@ -167,23 +157,23 @@ def process_note(
     # ── LLM extraction ────────────────────────────────────────────────────────
     prompt = combined_prompt.replace("{note_text}", note_text)
     try:
-        raw = run_medgemma(prompt, model, tokenizer, max_new_tokens=768)
+        raw = run_medgemma(prompt, model, tokenizer, max_new_tokens=512)
         parsed = parse_json_response(raw) or {}
     except Exception as e:
         result["errors"].append(f"generation_error: {e}")
         parsed = {}
 
-    enc_raw = parsed.get("encounter", {})
-    cl_raw  = parsed.get("checklist", {})
+    # Prompt now returns flat extraction JSON (no 'encounter' wrapper)
     note_lower = note_text.lower()
 
+
     # ── Build normalised encounter ────────────────────────────────────────────
-    onset = enc_raw.get("onset_days")
+    onset = parsed.get("onset_days")
     try:
         onset = int(onset) if onset else None
     except (ValueError, TypeError):
         onset = None
-    severity = str(enc_raw.get("severity", "unknown")).lower().strip()
+    severity = str(parsed.get("severity", "unknown")).lower().strip()
     if severity not in ("mild", "moderate", "severe"):
         severity = "unknown"
 
@@ -192,15 +182,15 @@ def process_note(
         "location_id":     location_id,
         "week_id":         week_id,
         "note_text":       note_text,
-        "chw_id":          str(enc_raw.get("chw_id", "unknown")),
-        "patient":         normalise_patient(enc_raw.get("patient", {}), note_text),
-        "symptoms":        normalise_symptoms(enc_raw.get("symptoms", {}), note_lower),
-        "other_symptoms":  normalise_other_symptoms(enc_raw.get("other_symptoms", {}), note_lower),
+        "chw_id":          str(parsed.get("chw_id", "unknown")),
+        "patient":         normalise_patient(parsed.get("patient", {}), note_text),
+        "symptoms":        normalise_symptoms(parsed.get("symptoms", {}), note_lower),
+        "other_symptoms":  normalise_other_symptoms(parsed.get("other_symptoms", {}), note_lower),
         "onset_days":      onset,
         "severity":        severity,
-        "red_flags":       enc_raw.get("red_flags", []),
-        "treatments_given":[str(t) for t in enc_raw.get("treatments_given", []) if t],
-        "referral":        enc_raw.get("referral"),
+        "red_flags":       parsed.get("red_flags", []),
+        "treatments_given":[str(t) for t in parsed.get("treatments_given", []) if t],
+        "referral":        parsed.get("referral"),
         "follow_up":       None,
     }
 
@@ -208,11 +198,8 @@ def process_note(
     syn = keyword_syndrome_tag(note_text)
     syn["encounter_id"] = encounter_id
 
-    # ── Checklist ─────────────────────────────────────────────────────────────
-    checklist = {
-        "encounter_id": encounter_id,
-        "questions":    (cl_raw.get("questions") or [])[:3],
-    }
+    # ── Checklist (removed from LLM call for speed) ───────────────────────────
+    checklist = {"encounter_id": encounter_id, "questions": []}
 
     result.update({
         "encounter":         encounter,

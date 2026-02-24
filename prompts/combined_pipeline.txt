@@ -1,49 +1,36 @@
 You are a medical AI assistant supporting Community Health Workers (CHWs) in low-resource settings.
 
-Given the following CHW clinical note, perform THREE tasks in a single JSON response.
+Given the following CHW clinical note, extract structured information into a single JSON object.
 
 CHW NOTE:
 {note_text}
 
 Return ONLY valid JSON (no explanation, no markdown fences) with this exact structure:
 {
-  "encounter": {
-    "symptoms": {
-      "fever":               {"value": "yes|no|unknown", "evidence_quote": "<exact phrase from note or null>", "duration": "<e.g. 3 days or null>"},
-      "cough":               {"value": "yes|no|unknown", "evidence_quote": "<exact phrase or null>", "duration": null},
-      "watery_diarrhea":     {"value": "yes|no|unknown", "evidence_quote": "<exact phrase or null>", "duration": null},
-      "bloody_diarrhea":     {"value": "yes|no|unknown", "evidence_quote": "<exact phrase or null>", "duration": null},
-      "vomiting":            {"value": "yes|no|unknown", "evidence_quote": "<exact phrase or null>", "duration": null},
-      "rash":                {"value": "yes|no|unknown", "evidence_quote": "<exact phrase or null>", "duration": null},
-      "difficulty_breathing":{"value": "yes|no|unknown", "evidence_quote": "<exact phrase or null>", "duration": null}
-    },
-    "other_symptoms": {},
-    "patient": {
-      "age_group": "infant|child|adolescent|adult|elderly|unknown",
-      "age_years": null,
-      "sex": "male|female|unknown"
-    },
-    "onset_days": null,
-    "severity": "mild|moderate|severe|unknown",
-    "red_flags": [],
-    "treatments_given": [],
-    "referral": null
+  "symptoms": {
+    "fever":               {"value": "yes|no|unknown", "evidence_quote": "<exact phrase from note or null>", "duration": "<e.g. '3 days' or null>"},
+    "cough":               {"value": "yes|no|unknown", "evidence_quote": "<exact phrase or null>", "duration": null},
+    "watery_diarrhea":     {"value": "yes|no|unknown", "evidence_quote": "<exact phrase or null>", "duration": null},
+    "bloody_diarrhea":     {"value": "yes|no|unknown", "evidence_quote": "<exact phrase or null>", "duration": null},
+    "vomiting":            {"value": "yes|no|unknown", "evidence_quote": "<exact phrase or null>", "duration": null},
+    "rash":                {"value": "yes|no|unknown", "evidence_quote": "<exact phrase or null>", "duration": null},
+    "difficulty_breathing":{"value": "yes|no|unknown", "evidence_quote": "<exact phrase or null>", "duration": null}
   },
-  "syndrome_tag": {
-    "syndrome_tag": "respiratory_fever|acute_watery_diarrhea|other|unclear",
-    "confidence": "high|medium|low",
-    "trigger_quotes": ["<up to 3 exact phrases from note>"],
-    "reasoning": "<one sentence>"
+  "other_symptoms": {},
+  "patient": {
+    "age_group": "infant|child|adolescent|adult|elderly|unknown",
+    "age_years": <integer or null — parse from text e.g. '3yo' → 3, '5 years old' → 5, '2yr' → 2>,
+    "sex": "male|female|unknown"
   },
-  "checklist": {
-    "questions": [
-      {"field": "<field_name>", "question": "<question for CHW to ask>", "priority": "high|medium|low"}
-    ]
-  }
+  "onset_days": <integer or null — parse from text e.g. 'fever 3 days' → 3>,
+  "severity": "mild|moderate|severe|unknown",
+  "red_flags": [],
+  "treatments_given": [],
+  "referral": null
 }
 
 RULES:
-- evidence_quote MUST be an exact substring of the note (copy-paste). If not found, set value to "unknown" and evidence_quote to null.
-- Include at most 3 checklist questions, targeting the most clinically important unknowns.
-- syndrome_tag reasoning must be one sentence referencing specific symptoms.
-- Return ONLY the JSON object. No extra text.
+- evidence_quote MUST be an exact substring copied from the note. If not found, set value to "unknown" and evidence_quote to null.
+- age_years: look for patterns like "3yo", "3yr", "3 years old", "aged 3", "3-year-old" and extract the integer.
+- onset_days: look for phrases like "fever 3 days", "sick for 2 weeks" (convert weeks → days), "since yesterday" → 1.
+- Return ONLY the JSON object. No preamble, no explanation.
