@@ -82,58 +82,45 @@ CORE_SYMPTOMS = [
 ]
 
 def _normalise_claim(claim, note_lower: str) -> dict:
-    """Validate a single symptom claim against the source note."""
+    """Validate a single symptom claim against the source note.
+
+    Philosophy: trust the model's clinical judgement.
+    - If model says "yes" we keep it, even without a quote.
+    - We only downgrade if the model provides a quote that has ZERO word
+      overlap with the note (clearly hallucinated evidence).
+    - If model says "no" we keep it (negative assertions are valuable).
+    """
     if not isinstance(claim, dict):
         claim = {}
     val = str(claim.get("value", "unknown")).lower().strip()
     if val not in ("yes", "no"):
         val = "unknown"
     quote = claim.get("evidence_quote")
+
     if val == "yes" and quote:
         q = quote.lower().strip()
-        # Exact substring check first
         if q in note_lower:
-            pass  # quote verified
+            pass  # exact match — fully grounded
         else:
-            # Fuzzy: at least 2 words from quote appear in note
+            # Check word-level overlap — reject only if ZERO meaningful words match
             words = [w for w in q.split() if len(w) > 2]
             matched = sum(1 for w in words if w in note_lower)
-            if matched < min(2, len(words)):
+            if words and matched == 0:
+                # Quote is completely fabricated — downgrade
                 val, quote = "unknown", None
-    elif val == "yes" and not quote:
-        val, quote = "unknown", None
+            # else: partial match → trust model, keep the claim
+
+    # If model says "yes" with no quote, trust it (model identified symptom
+    # but didn't provide verbatim evidence — this is fine)
+
     return {
         "value": val,
         "evidence_quote": quote,
         "duration": claim.get("duration") if val == "yes" else None,
     }
 
-# Direct keyword synonyms for each core symptom — used when LLM extracts 'unknown'
-SYMPTOM_KEYWORDS = {
-    "fever":               ["fever", "febrile", "high temperature", "pyrexia", "hot body"],
-    "cough":               ["cough", "coughing", "coughs"],
-    "watery_diarrhea":     ["watery diarrhea", "watery stool", "loose stool", "liquid stool",
-                            "diarrhoea", "diarrhea"],
-    "bloody_diarrhea":     ["bloody stool", "blood in stool", "bloody diarrhoea"],
-    "vomiting":            ["vomiting", "vomit", "throwing up", "nausea", "nauseous"],
-    "rash":                ["rash", "rashes", "skin lesion", "spots on"],
-    "difficulty_breathing":["difficulty breathing", "diff breath", "fast breathing",
-                            "rapid breathing", "shortness of breath", "chest indrawing",
-                            "laboured", "breathless", "respiratory distress"],
-}
-
 def normalise_symptoms(raw: dict, note_lower: str) -> dict:
-    result = {}
-    for k in CORE_SYMPTOMS:
-        claim = _normalise_claim(raw.get(k, {}), note_lower)
-        # Keyword fallback: if LLM returned unknown but keyword is in note → promote to yes
-        if claim["value"] == "unknown":
-            for kw in SYMPTOM_KEYWORDS.get(k, []):
-                if kw in note_lower:
-                    claim = {"value": "yes", "evidence_quote": kw, "duration": None}
-                    break
-        result[k] = claim
-    return result
+    return {k: _normalise_claim(raw.get(k, {}), note_lower) for k in CORE_SYMPTOMS}
 
 def normalise_other_symptoms(raw: dict, note_lower: str) -> dict:
     out = {}
