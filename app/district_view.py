@@ -52,6 +52,15 @@ def render_district_view():
         lambda s: SYNDROME_DISPLAY.get(s, s)
     )
 
+    # Map week_id → date range labels (2025 epi calendar, starting Mon Jan 6)
+    from datetime import date, timedelta
+    EPI_START = date(2025, 1, 6)   # Monday of epi week 1
+    def week_label(wid):
+        start = EPI_START + timedelta(weeks=int(wid) - 1)
+        end = start + timedelta(days=6)
+        return f"W{wid} · {start.strftime('%b %d')}–{end.strftime('%d')}"
+    weekly_data["week_label"] = weekly_data["week_id"].map(week_label)
+
     latest_week  = int(weekly_data["week_id"].max())
     latest       = weekly_data[weekly_data["week_id"] == latest_week]
     total_cases  = int(latest["count"].sum())
@@ -123,7 +132,7 @@ def render_district_view():
         # Aggregate across all locations for overview line chart
         agg = (
             weekly_data
-            .groupby(["week_id", "syndrome_tag", "syndrome_display"])["count"]
+            .groupby(["week_id", "week_label", "syndrome_tag", "syndrome_display"])["count"]
             .sum()
             .reset_index()
         )
@@ -134,13 +143,13 @@ def render_district_view():
             color = SYNDROME_COLORS.get(syndrome_tag, "#888")
             label = SYNDROME_DISPLAY.get(syndrome_tag, syndrome_tag)
             fig.add_trace(go.Scatter(
-                x=grp["week_id"],
+                x=grp["week_label"],
                 y=grp["count"],
                 mode="lines+markers",
                 name=label,
                 line=dict(color=color, width=2.5),
                 marker=dict(size=7, color=color, line=dict(color="white", width=1.5)),
-                hovertemplate=f"<b>{label}</b><br>Week %{{x}} : %{{y}} cases<extra></extra>",
+                hovertemplate=f"<b>{label}</b><br>%{{x}} : %{{y}} cases<extra></extra>",
             ))
 
         fig.update_layout(
