@@ -46,6 +46,34 @@ def run_medgemma(prompt: str, model, tokenizer, max_new_tokens: int = 512) -> st
     ).strip()
 
 
+def run_medgemma_batch(prompts: list, model, tokenizer, max_new_tokens: int = 512) -> list:
+    """Run multiple prompts in a single GPU batch for ~batch_size x throughput."""
+    formatted = [
+        tokenizer.apply_chat_template(
+            [{"role": "user", "content": p}], tokenize=False, add_generation_prompt=True
+        )
+        for p in prompts
+    ]
+    # Pad left so all sequences are the same length (generation works from right)
+    tokenizer.padding_side = "left"
+    inputs = tokenizer(
+        formatted, return_tensors="pt", padding=True, truncation=True, max_length=1024
+    ).to(model.device)
+    with torch.no_grad():
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=max_new_tokens,
+            do_sample=False,
+            pad_token_id=tokenizer.eos_token_id,
+        )
+    input_len = inputs["input_ids"].shape[1]
+    return [
+        tokenizer.decode(out[input_len:], skip_special_tokens=True).strip()
+        for out in outputs
+    ]
+
+
+
 # ── Symptom normalisation ──────────────────────────────────────────────────────
 
 CORE_SYMPTOMS = [
@@ -208,3 +236,92 @@ def process_note(
         "processing_time_s": round(time.time() - t0, 2),
     })
     return result
+
+
+def _build_result(parsed: dict, note: dict, t0: float) -> dict:
+    """Build a result dict from a parsed LLM response and a note metadata dict."""
+    encounter_id = note["encounter_id"]
+    location_id  = note.get("location_id", "unknown")
+    week_id      = note.get("week_id", 0)
+    note_text    = note["note_text"]
+    note_lower   = note_text.lower()
+
+    onset = parsed.get("onset_days")
+    try:    onset = int(onset) if onset else None
+    except: onset = None
+    severity = str(parsed.get("severity", "unknown")).lower().strip()
+    if severity not in ("mild", "moderate", "severe"): severity = "unknown"
+
+    encounter = {
+        "encounter_id":    encounter_id,
+        "location_id":     location_id,
+        "week_id":         week_id,
+        "note_text":       note_text,
+        "chw_id":          str(parsed.get("chw_id", "unknown")),
+        "patient":         normalise_patient(parsed.get("patient", {}), note_text),
+        "symptoms":        normalise_symptoms(parsed.get("symptoms", {}), note_lower),
+        "other_symptoms":  normalise_other_symptoms(parsed.get("other_symptoms", {}), note_lower),
+        "onset_days":      onset,
+        "severity":        severity,
+        "red_flags":       parsed.get("red_flags", []),
+        "treatments_given":[str(t) for t in parsed.get("treatments_given", []) if t],
+        "referral":        parsed.get("referral"),
+        "follow_up":       None,
+    }
+    syn = keyword_syndrome_tag(note_text)
+    syn["encounter_id"] = encounter_id
+    return {
+        "encounter_id":    encounter_id,
+        "errors":          [],
+        "encounter":       encounter,
+        "syndrome_tag":    syn,
+        "checklist":       {"encounter_id": encounter_id, "questions": []},
+        "processing_time_s": round(time.time() - t0, 2),
+    }
+
+
+def process_notes_batch(
+    notes: list,
+    combined_prompt: str,
+    model,
+    tokenizer,
+    batch_size: int = 4,
+    max_new_tokens: int = 512,
+) -> list:
+    """
+    Process multiple CHW notes in parallel GPU batches.
+    ~batch_size x faster throughput vs sequential processing.
+
+    Args:
+        notes:      list of dicts with keys: note_text, encounter_id, location_id, week_id
+        batch_size: number of notes to process simultaneously (4 is safe for T4 16GB)
+    """
+    results = []
+    total   = len(notes)
+    t_start = time.time()
+
+    for i in range(0, total, batch_size):
+        batch     = notes[i : i + batch_size]
+        prompts   = [combined_prompt.replace("{note_text}", n["note_text"]) for n in batch]
+        t0        = time.time()
+
+        try:
+            raw_outputs = run_medgemma_batch(prompts, model, tokenizer, max_new_tokens)
+        except Exception as e:
+            # Fallback: process individually if batch fails
+            print(f"  ⚠️  Batch failed ({e}), falling back to sequential for this batch")
+            raw_outputs = [
+                run_medgemma(p, model, tokenizer, max_new_tokens) for p in prompts
+            ]
+
+        for raw, note in zip(raw_outputs, batch):
+            parsed = parse_json_response(raw) or {}
+            results.append(_build_result(parsed, note, t0))
+
+        elapsed = time.time() - t_start
+        done    = min(i + batch_size, total)
+        rate    = elapsed / done
+        print(f"  Batch {i//batch_size + 1}: notes {i+1}–{done}/{total}  "
+              f"({time.time()-t0:.1f}s batch)  |  avg {rate:.1f}s/note")
+
+    return results
