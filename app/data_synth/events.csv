@@ -1,0 +1,11 @@
+encounter_id,week_id,location_id,syndrome_tag
+e1,1,locA,respiratory_fever
+e2,1,locA,acute_watery_diarrhea
+e3,2,locA,respiratory_fever
+e4,2,locB,respiratory_fever
+e5,3,locA,acute_watery_diarrhea
+e6,6,locA,respiratory_fever
+e7,6,locA,respiratory_fever
+e8,6,locA,respiratory_fever
+e9,6,locA,respiratory_fever
+e10,6,locA,respiratory_fever

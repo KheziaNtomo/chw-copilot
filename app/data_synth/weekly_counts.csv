@@ -1,0 +1,7 @@
+week_id,location_id,syndrome_tag,count
+1,locA,acute_watery_diarrhea,1
+1,locA,respiratory_fever,1
+2,locA,respiratory_fever,1
+2,locB,respiratory_fever,1
+3,locA,acute_watery_diarrhea,1
+6,locA,respiratory_fever,5

@@ -1,0 +1,2 @@
+week_id,location_id,syndrome_tag,count,baseline_mean,baseline_window_size
+6.0,locA,respiratory_fever,5.0,0.25,4

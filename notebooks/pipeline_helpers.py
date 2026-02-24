@@ -115,7 +115,16 @@ SYNDROME_RULES = {
 }
 
 def keyword_syndrome_tag(note_text: str) -> dict:
-    """Fast keyword-based syndrome classifier — no LLM call needed."""
+    """Fast keyword-based syndrome classifier — deterministic fallback (no LLM).
+
+    This is a speed-optimised fallback for batch processing. The primary
+    syndrome tagger uses MedGemma's clinical reasoning (see src.tagger).
+
+    Limitations:
+    - Cannot interpret negation: "no cough" will still match "cough"
+    - Cannot weigh symptom combinations beyond simple co-occurrence
+    - Limited to the pre-defined keyword lists below
+    """
     note = note_text.lower()
     scores = {
         syndrome: sum(1 for kw in kws if kw in note)

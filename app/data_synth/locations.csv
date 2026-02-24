@@ -1,0 +1,9 @@
+location_id,name,district,lat,lon
+loc01,Kibera Health Post,Nairobi,-1.3133,36.7876
+loc02,Mathare Clinic,Nairobi,-1.2600,36.8580
+loc03,Dandora Community,Nairobi,-1.2480,36.9010
+loc04,Kisumu Central,Kisumu,-0.1022,34.7617
+loc05,Nyalenda Health Post,Kisumu,-0.1150,34.7450
+loc06,Busia Border Post,Busia,0.4608,34.1115
+loc07,Turkana Mobile Unit,Turkana,3.3122,35.5658
+loc08,Kakamega Rural,Kakamega,0.2827,34.7519

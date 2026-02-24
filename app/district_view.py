@@ -52,14 +52,24 @@ def render_district_view():
         lambda s: SYNDROME_DISPLAY.get(s, s)
     )
 
-    # Map week_id → date range labels (2025 epi calendar, starting Mon Jan 6)
+    # Map week_id → date range labels using "date" column if available
     from datetime import date, timedelta
     EPI_START = date(2025, 1, 6)   # Monday of epi week 1
-    def week_label(wid):
-        start = EPI_START + timedelta(weeks=int(wid) - 1)
+
+    def week_label(row):
+        """Build 'W{n} · Mon DD–DD' label from date field or computed."""
+        wid = int(row["week_id"])
+        if "date" in row and row["date"]:
+            try:
+                start = date.fromisoformat(str(row["date"])[:10])
+            except (ValueError, TypeError):
+                start = EPI_START + timedelta(weeks=wid - 1)
+        else:
+            start = EPI_START + timedelta(weeks=wid - 1)
         end = start + timedelta(days=6)
         return f"W{wid} · {start.strftime('%b %d')}–{end.strftime('%d')}"
-    weekly_data["week_label"] = weekly_data["week_id"].map(week_label)
+
+    weekly_data["week_label"] = weekly_data.apply(week_label, axis=1)
 
     latest_week  = int(weekly_data["week_id"].max())
     latest       = weekly_data[weekly_data["week_id"] == latest_week]
@@ -137,20 +147,58 @@ def render_district_view():
             .reset_index()
         )
 
+        # Build week_id → week_label mapping for anomaly shading
+        wid_to_label = dict(zip(agg["week_id"], agg["week_label"]))
+        # Identify anomaly week labels
+        anomaly_week_ids = set(a["week_id"] for a in surv["anomalies"])
+
         fig = go.Figure()
         for syndrome_tag in agg["syndrome_tag"].unique():
             grp = agg[agg["syndrome_tag"] == syndrome_tag].sort_values("week_id")
             color = SYNDROME_COLORS.get(syndrome_tag, "#888")
             label = SYNDROME_DISPLAY.get(syndrome_tag, syndrome_tag)
+
+            # Use larger red markers for anomaly weeks
+            marker_colors = []
+            marker_sizes = []
+            marker_lines = []
+            for _, row in grp.iterrows():
+                if int(row["week_id"]) in anomaly_week_ids:
+                    marker_colors.append("#c0392b")
+                    marker_sizes.append(11)
+                    marker_lines.append(dict(color="#c0392b", width=2))
+                else:
+                    marker_colors.append(color)
+                    marker_sizes.append(7)
+                    marker_lines.append(dict(color="white", width=1.5))
+
             fig.add_trace(go.Scatter(
                 x=grp["week_label"],
                 y=grp["count"],
                 mode="lines+markers",
                 name=label,
                 line=dict(color=color, width=2.5),
-                marker=dict(size=7, color=color, line=dict(color="white", width=1.5)),
+                marker=dict(size=marker_sizes, color=marker_colors,
+                            line=dict(color=[ml["color"] for ml in marker_lines],
+                                      width=[ml["width"] for ml in marker_lines])),
                 hovertemplate=f"<b>{label}</b><br>%{{x}} : %{{y}} cases<extra></extra>",
             ))
+
+        # Add red shaded regions for anomaly weeks
+        all_week_labels = sorted(agg["week_label"].unique(), key=lambda x: int(x.split("·")[0].strip()[1:]))
+        for awid in sorted(anomaly_week_ids):
+            wlabel = wid_to_label.get(awid)
+            if wlabel and wlabel in all_week_labels:
+                idx = all_week_labels.index(wlabel)
+                fig.add_vrect(
+                    x0=idx - 0.4, x1=idx + 0.4,
+                    fillcolor="rgba(192,57,43,0.08)",
+                    line=dict(color="rgba(192,57,43,0.3)", width=1, dash="dot"),
+                    layer="below",
+                    annotation_text="Alert" if awid == min(anomaly_week_ids) else "",
+                    annotation_position="top left",
+                    annotation_font=dict(color="#c0392b", size=10),
+                )
 
         fig.update_layout(
             paper_bgcolor="rgba(0,0,0,0)",
@@ -184,6 +232,84 @@ def render_district_view():
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
     else:
         st.dataframe(weekly_data[["week_id","location_name","syndrome_display","count"]], use_container_width=True)
+
+    # ── Location Map (colored by outlier status) ─────────────────
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+    st.markdown(
+        '<p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;'
+        'font-weight:700;color:#8a9a7a;margin-bottom:0.5rem;">Location Alert Map</p>',
+        unsafe_allow_html=True,
+    )
+
+    if PLOTLY_AVAILABLE and DEMO_LOCATIONS:
+        # Determine which locations have anomalies in latest weeks
+        alert_locations = set()
+        for anomaly in surv["anomalies"]:
+            alert_locations.add(anomaly["location_id"])
+
+        # Build map data
+        map_lats, map_lons, map_names, map_colors, map_sizes, map_hover = [], [], [], [], [], []
+        for loc_id, loc_info in DEMO_LOCATIONS.items():
+            loc_name = loc_info.get("name", loc_id)
+            is_alert = loc_id in alert_locations
+
+            # Compute latest-week case summary for hover
+            loc_latest = latest[latest["location_id"] == loc_id]
+            case_summary = " · ".join(
+                f"{row['syndrome_display']}: {int(row['count'])}"
+                for _, row in loc_latest.iterrows()
+            ) or "No data"
+
+            map_lats.append(loc_info["lat"])
+            map_lons.append(loc_info["lon"])
+            map_names.append(loc_name)
+            map_colors.append("#c0392b" if is_alert else "#4a6032")
+            map_sizes.append(22 if is_alert else 14)
+            status = "ALERT" if is_alert else "Normal"
+            map_hover.append(
+                f"<b>{loc_name}</b><br>"
+                f"Status: {status}<br>"
+                f"Week {latest_week}: {case_summary}"
+            )
+
+        map_fig = go.Figure(go.Scattermapbox(
+            lat=map_lats,
+            lon=map_lons,
+            mode="markers+text",
+            marker=dict(size=map_sizes, color=map_colors, opacity=0.85),
+            text=map_names,
+            textposition="top center",
+            textfont=dict(size=11, color="#1e2a1e", family="Inter"),
+            hovertext=map_hover,
+            hoverinfo="text",
+        ))
+
+        # Compute center
+        center_lat = sum(map_lats) / len(map_lats)
+        center_lon = sum(map_lons) / len(map_lons)
+
+        map_fig.update_layout(
+            mapbox=dict(
+                style="open-street-map",
+                center=dict(lat=center_lat, lon=center_lon),
+                zoom=11,
+            ),
+            margin=dict(l=0, r=0, t=0, b=0),
+            height=300,
+            paper_bgcolor="rgba(0,0,0,0)",
+        )
+        st.plotly_chart(map_fig, use_container_width=True, config={"displayModeBar": False})
+
+        # Legend
+        st.markdown(
+            '<div style="display:flex;gap:1.5rem;font-size:0.78rem;color:#4a5a3a;margin-top:0.3rem;">'
+            '<span><span style="display:inline-block;width:10px;height:10px;background:#c0392b;'
+            'border-radius:50%;margin-right:4px;"></span>Alert (outlier detected)</span>'
+            '<span><span style="display:inline-block;width:10px;height:10px;background:#4a6032;'
+            'border-radius:50%;margin-right:4px;"></span>Normal</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
     # ── SITREP ───────────────────────────────────────────────────
     st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
