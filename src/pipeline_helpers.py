@@ -148,8 +148,15 @@ def _normalise_claim(claim, note_lower: str) -> dict:
 def normalise_symptoms(raw: dict, note_lower: str) -> dict:
     return {k: _normalise_claim(raw.get(k, {}), note_lower) for k in CORE_SYMPTOMS}
 
-def normalise_other_symptoms(raw: dict, note_lower: str) -> dict:
+def normalise_other_symptoms(raw, note_lower: str) -> dict:
     out = {}
+    # MedGemma may return a list instead of dict — handle both
+    if isinstance(raw, list):
+        for item in raw:
+            if isinstance(item, dict) and "value" in item:
+                name = item.get("name", item.get("symptom", f"other_{len(out)}"))
+                out[name] = _normalise_claim(item, note_lower)
+        return out
     for k, v in (raw or {}).items():
         if not isinstance(v, dict):
             continue
