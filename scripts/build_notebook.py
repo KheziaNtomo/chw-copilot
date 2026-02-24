@@ -261,8 +261,29 @@ gold_notes = [json.loads(l) for l in open(gold_path, encoding="utf-8")]
 
 N_DEMO     = 20   # set to len(gold_notes) for a full run
 BATCH_SIZE = 4    # notes processed in parallel; reduce to 2 if OOM
-demo_notes = gold_notes[:N_DEMO]
-print(f"Loaded {len(gold_notes)} gold notes  |  Running first {N_DEMO} in batches of {BATCH_SIZE}")
+
+# Stratified random sample — ensures all syndrome types are represented
+import random, collections
+random.seed(42)
+by_syndrome = collections.defaultdict(list)
+for n in gold_notes:
+    by_syndrome[n.get("gold_syndrome_tag", "unclear")].append(n)
+
+demo_notes = []
+syndromes  = list(by_syndrome.keys())
+# Round-robin fill up to N_DEMO in syndrome order, then shuffle
+per_syndrome = max(1, N_DEMO // len(syndromes))
+for syn, pool in by_syndrome.items():
+    demo_notes.extend(random.sample(pool, min(per_syndrome, len(pool))))
+# Top up if needed
+remaining = [n for n in gold_notes if n not in demo_notes]
+random.shuffle(remaining)
+demo_notes.extend(remaining[:max(0, N_DEMO - len(demo_notes))])
+random.shuffle(demo_notes)
+demo_notes = demo_notes[:N_DEMO]
+
+tag_counts = collections.Counter(n.get("gold_syndrome_tag","unclear") for n in demo_notes)
+print(f"Loaded {len(gold_notes)} gold notes | Stratified sample {N_DEMO}: {dict(tag_counts)}")
 """))
 
 cells.append(code("""\
