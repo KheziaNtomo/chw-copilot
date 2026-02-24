@@ -230,16 +230,22 @@ enc = test_result["encounter"]
 syn = test_result["syndrome_tag"]
 
 print(f"\\n{'─'*50}")
-print(f"  Syndrome tag : {syn['syndrome_tag']}  ({syn['confidence']} confidence)")
-print(f"  Triggers     : {', '.join(syn['trigger_quotes'])}")
-print(f"  Fever        : {enc['symptoms']['fever']['value']}")
-print(f"  Cough        : {enc['symptoms']['cough']['value']}")
-print(f"  Diff. breath : {enc['symptoms']['difficulty_breathing']['value']}")
-print(f"  Patient      : {enc['patient'].get('age_years', '?')}yo {enc['patient'].get('sex', '?')}")
-print(f"  Severity     : {enc['severity']}")
-print(f"  Errors       : {test_result.get('errors', []) or 'none'}")
+print(f"  Syndrome tag  : {syn['syndrome_tag']}  ({syn['confidence']} confidence)")
+print(f"  Sub-syndrome  : {syn.get('sub_syndrome', '—')}")
+print(f"  Triggers      : {', '.join(syn['trigger_quotes'])}")
+print(f"  Fever         : {enc['symptoms']['fever']['value']}")
+print(f"  Cough         : {enc['symptoms']['cough']['value']}")
+print(f"  Diff. breath  : {enc['symptoms']['difficulty_breathing']['value']}")
+print(f"  Patient       : {enc['patient'].get('age_years', '?')}yo {enc['patient'].get('sex', '?')}")
+print(f"  Severity      : {enc['severity']}")
+print(f"  Onset (days)  : {enc.get('onset_days', '?')}")
+print(f"  Onset week    : {enc.get('estimated_onset_week', '?')}")
+print(f"  Errors        : {test_result.get('errors', []) or 'none'}")
 print(f"{'─'*50}")
 print(f"  ⏱  {elapsed:.1f}s")
+print(f"\\n  📋 Recommendations:")
+for rec in test_result.get('recommendations', []):
+    print(f"    {rec}")
 """))
 
 # ── Section 6: Full Pipeline ──────────────────────────────────────────────────
@@ -342,6 +348,7 @@ for r, g in zip(results[:N_SAMPLE], demo_notes[:N_SAMPLE]):
         "ID":          r["encounter_id"],
         "Note (first 80 chars)": g["note_text"][:80] + "…",
         "Predicted":   syn["syndrome_tag"],
+        "Sub-syndrome": syn.get("sub_syndrome", "—"),
         "Confidence":  syn["confidence"],
         "Gold label":  g.get("gold_syndrome_tag", "—"),
         "Match":       "✅" if syn["syndrome_tag"] == g.get("gold_syndrome_tag") else "❌",
@@ -516,9 +523,9 @@ output = {
     "avg_processing_time_s":  round(avg_t, 2),
     "syndrome_accuracy":      round(accuracy, 3),
     "evidence_grounding_rate":round(grounding_rate, 3),
-    "encounters":             [r["encounter"]    for r in results],
-    "syndrome_tags":          [r["syndrome_tag"] for r in results],
-    "checklists":             [r["checklist"]    for r in results],
+    "encounters":             [r["encounter"]       for r in results],
+    "syndrome_tags":          [r["syndrome_tag"]     for r in results],
+    "recommendations":        [r["recommendations"]  for r in results],
 }
 
 out_path = OUT_DIR / "pipeline_results.json"

@@ -209,6 +209,107 @@ def keyword_syndrome_tag(note_text: str) -> dict:
     }
 
 
+# ── Sub-syndrome classification ────────────────────────────────────────────────
+
+def sub_syndrome_hint(encounter: dict, syndrome_tag: str) -> str:
+    """
+    Within respiratory_fever, differentiate: malaria-like, pneumonia-like, TB-like.
+    Returns a sub-syndrome hint string, or None for non-respiratory.
+    """
+    if syndrome_tag != "respiratory_fever":
+        return None
+
+    sym = encounter.get("symptoms", {})
+    note = encounter.get("note_text", "").lower()
+
+    has_cough     = sym.get("cough", {}).get("value") == "yes"
+    has_fast_br   = sym.get("difficulty_breathing", {}).get("value") == "yes"
+    has_fever     = sym.get("fever", {}).get("value") == "yes"
+
+    # TB-like: chronic cough (>14 days) + weight loss / night sweats
+    onset = encounter.get("onset_days")
+    chronic_cough = has_cough and onset and onset >= 14
+    tb_clues = any(kw in note for kw in ["weight loss", "night sweat", "tb", "tuberculosis"])
+    if chronic_cough or tb_clues:
+        return "TB-like"
+
+    # Pneumonia-like: cough + fast/difficult breathing
+    if has_cough and has_fast_br:
+        return "pneumonia-like"
+
+    # Malaria-like: fever + chills/rigors but NO cough
+    malaria_clues = any(kw in note for kw in ["chill", "rigor", "shaking", "rdt", "malaria", "swamp"])
+    if has_fever and malaria_clues and not has_cough:
+        return "malaria-like"
+
+    # Fever + cough but no fast breathing → upper respiratory
+    if has_fever and has_cough and not has_fast_br:
+        return "upper-respiratory"
+
+    return "unspecified"
+
+
+# ── ICCM-based clinical recommendations ───────────────────────────────────────
+
+def generate_recommendations(encounter: dict, syndrome_tag: str) -> list:
+    """
+    Rule-based clinical recommendations following WHO ICCM guidelines.
+    Returns a list of action strings for the CHW.
+    """
+    recs = []
+    sym = encounter.get("symptoms", {})
+    note = encounter.get("note_text", "").lower()
+    red_flags = [rf.lower() for rf in encounter.get("red_flags", [])]
+    age_years = encounter.get("patient", {}).get("age_years")
+
+    has_fever   = sym.get("fever", {}).get("value") == "yes"
+    has_cough   = sym.get("cough", {}).get("value") == "yes"
+    has_fast_br = sym.get("difficulty_breathing", {}).get("value") == "yes"
+    has_awd     = sym.get("watery_diarrhea", {}).get("value") == "yes"
+    has_vomit   = sym.get("vomiting", {}).get("value") == "yes"
+
+    # ── Danger signs → REFER IMMEDIATELY ──────────────────────────────────────
+    danger_signs = []
+    if any(kw in note for kw in ["convulsion", "convulsions", "seizure"]):
+        danger_signs.append("convulsions")
+    if any(kw in note for kw in ["unable to drink", "refuses to drink", "not drinking"]):
+        danger_signs.append("unable to drink")
+    if any(kw in note for kw in ["sunken eyes", "skin pinch slow", "no tears", "sunken fontanelle"]):
+        danger_signs.append("dehydration signs")
+    if any(kw in note for kw in ["confused", "unconscious", "lethargic", "very sleepy", "altered"]):
+        danger_signs.append("altered consciousness")
+    if "chest_indrawing" in red_flags or "chest indrawing" in note or "chest pulling" in note:
+        danger_signs.append("chest indrawing")
+
+    if danger_signs:
+        recs.append(f"🚨 REFER IMMEDIATELY — danger sign(s): {', '.join(danger_signs)}")
+
+    # ── AWD recommendations ───────────────────────────────────────────────────
+    if has_awd or syndrome_tag == "acute_watery_diarrhea":
+        recs.append("💧 Start ORS immediately; give zinc (10mg if <6mo, 20mg if ≥6mo) for 10 days")
+        if has_vomit:
+            recs.append("⚠️ Persistent vomiting — give ORS in small sips, monitor for dehydration")
+        if not danger_signs:
+            recs.append("📋 Follow up in 24 hours — reassess hydration status")
+
+    # ── Respiratory recommendations ───────────────────────────────────────────
+    if syndrome_tag == "respiratory_fever":
+        if has_fever:
+            recs.append("🌡️ Give paracetamol for fever; do malaria RDT if available")
+        if has_cough and has_fast_br and age_years and age_years < 5:
+            recs.append("💊 Likely pneumonia in child <5 — give oral amoxicillin, refer if no improvement in 48h")
+        elif has_cough and has_fast_br:
+            recs.append("💊 Cough + difficulty breathing — count respiratory rate, consider referral")
+        if any(kw in note for kw in ["rdt positive", "rdt+", "malaria positive"]):
+            recs.append("💊 Malaria RDT positive — give ACT (artemisinin-based combination therapy)")
+
+    # ── General ───────────────────────────────────────────────────────────────
+    if not recs:
+        recs.append("📋 No urgent action needed — routine follow-up")
+
+    return recs
+
+
 # ── Full single-pass pipeline ──────────────────────────────────────────────────
 
 def process_note(
@@ -272,13 +373,20 @@ def process_note(
     syn = keyword_syndrome_tag(note_text)
     syn["encounter_id"] = encounter_id
 
-    # ── Checklist (removed from LLM call for speed) ───────────────────────────
-    checklist = {"encounter_id": encounter_id, "questions": []}
+    # ── Sub-syndrome + recommendations (rule-based, instant) ──────────────────
+    syn["sub_syndrome"] = sub_syndrome_hint(encounter, syn["syndrome_tag"])
+    recs = generate_recommendations(encounter, syn["syndrome_tag"])
+
+    # ── Onset-adjusted week for more accurate surveillance ────────────────────
+    estimated_onset_week = week_id
+    if onset and onset >= 7:
+        estimated_onset_week = max(1, week_id - (onset // 7))
+    encounter["estimated_onset_week"] = estimated_onset_week
 
     result.update({
         "encounter":         encounter,
         "syndrome_tag":      syn,
-        "checklist":         checklist,
+        "recommendations":   recs,
         "processing_time_s": round(time.time() - t0, 2),
     })
     return result
@@ -316,12 +424,21 @@ def _build_result(parsed: dict, note: dict, t0: float) -> dict:
     }
     syn = keyword_syndrome_tag(note_text)
     syn["encounter_id"] = encounter_id
+    syn["sub_syndrome"] = sub_syndrome_hint(encounter, syn["syndrome_tag"])
+    recs = generate_recommendations(encounter, syn["syndrome_tag"])
+
+    # Onset-adjusted week
+    estimated_onset_week = week_id
+    if onset and onset >= 7:
+        estimated_onset_week = max(1, week_id - (onset // 7))
+    encounter["estimated_onset_week"] = estimated_onset_week
+
     return {
         "encounter_id":    encounter_id,
         "errors":          [],
         "encounter":       encounter,
         "syndrome_tag":    syn,
-        "checklist":       {"encounter_id": encounter_id, "questions": []},
+        "recommendations": recs,
         "processing_time_s": round(time.time() - t0, 2),
     }
 
