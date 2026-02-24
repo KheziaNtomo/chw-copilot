@@ -131,35 +131,81 @@ def normalise_patient(raw: dict, note_text: str = "") -> dict:
 
 # ── Syndrome tagging (fast keyword classifier) ─────────────────────────────────
 
-SYNDROME_RULES = {
-    "respiratory_fever": [
-        "fever", "cough", "difficulty breathing", "shortness of breath",
-        "respiratory", "pneumonia", "malaria", "flu", "cold",
-    ],
-    "acute_watery_diarrhea": [
-        "watery diarrhea", "diarrhoea", "diarrhea", "loose stool",
-        "awd", "cholera", "dehydration",
-    ],
-}
+RESPIRATORY_KEYWORDS = [
+    "cough", "difficulty breathing", "fast breathing", "rapid breathing",
+    "shortness of breath", "chest indrawing", "chest pulling",
+    "noisy breathing", "wheezing", "chest tight",
+]
+
+FEVER_KEYWORDS = [
+    "fever", "feverish", "hot body", "high fever", "febrile", "temperature",
+]
+
+AWD_KEYWORDS = [
+    "watery diarrhea", "watery stool", "watery stools", "diarrhoea",
+    "loose stool", "loose watery", "running stomach", "rice-water",
+    "awd", "cholera",
+]
 
 def keyword_syndrome_tag(note_text: str) -> dict:
-    """Fast keyword-based syndrome classifier — no LLM call needed."""
+    """
+    Keyword-based syndrome classifier.
+    - respiratory_fever: requires BOTH fever AND a respiratory symptom
+    - acute_watery_diarrhea: any watery diarrhea keyword
+    - other: everything else (including pure fever / malaria-like presentations)
+    """
     note = note_text.lower()
-    scores = {
-        syndrome: sum(1 for kw in kws if kw in note)
-        for syndrome, kws in SYNDROME_RULES.items()
-    }
-    best = max(scores, key=scores.get)
-    if scores[best] == 0:
-        return {"syndrome_tag": "other", "confidence": "low",
-                "trigger_quotes": ["no matching keywords"], "reasoning": "No syndrome keywords found in note."}
-    triggers = [kw for kw in SYNDROME_RULES[best] if kw in note][:3]
-    confidence = "high" if scores[best] >= 2 else "medium"
+
+    has_fever = any(kw in note for kw in FEVER_KEYWORDS)
+    resp_hits = [kw for kw in RESPIRATORY_KEYWORDS if kw in note]
+    awd_hits  = [kw for kw in AWD_KEYWORDS if kw in note]
+
+    # AWD takes priority if unambiguous
+    if awd_hits and not resp_hits:
+        confidence = "high" if len(awd_hits) >= 2 else "medium"
+        return {
+            "syndrome_tag":  "acute_watery_diarrhea",
+            "confidence":    confidence,
+            "trigger_quotes": awd_hits[:3],
+            "reasoning":     f"Watery diarrhea keywords: {', '.join(awd_hits[:3])}.",
+        }
+
+    # Respiratory fever: MUST have fever + at least one respiratory symptom
+    if has_fever and resp_hits:
+        fever_hit = next((kw for kw in FEVER_KEYWORDS if kw in note), "fever")
+        confidence = "high" if len(resp_hits) >= 2 else "medium"
+        return {
+            "syndrome_tag":  "respiratory_fever",
+            "confidence":    confidence,
+            "trigger_quotes": [fever_hit] + resp_hits[:2],
+            "reasoning":     f"Fever ({fever_hit}) + respiratory symptoms: {', '.join(resp_hits[:2])}.",
+        }
+
+    # AWD that also has respiratory features
+    if awd_hits:
+        confidence = "medium"
+        return {
+            "syndrome_tag":  "acute_watery_diarrhea",
+            "confidence":    confidence,
+            "trigger_quotes": awd_hits[:3],
+            "reasoning":     f"Watery diarrhea keywords present: {', '.join(awd_hits[:3])}.",
+        }
+
+    # Fever alone (malaria-like, convulsion, etc.) → other
+    if has_fever:
+        fever_hit = next((kw for kw in FEVER_KEYWORDS if kw in note), "fever")
+        return {
+            "syndrome_tag":  "other",
+            "confidence":    "low",
+            "trigger_quotes": [fever_hit],
+            "reasoning":     "Fever present but no respiratory or diarrheal symptoms — likely non-specific febrile illness.",
+        }
+
     return {
-        "syndrome_tag": best,
-        "confidence": confidence,
-        "trigger_quotes": triggers,
-        "reasoning": f"Note contains {scores[best]} keyword(s) for {best}: {', '.join(triggers)}.",
+        "syndrome_tag":  "unclear",
+        "confidence":    "low",
+        "trigger_quotes": [],
+        "reasoning":     "No syndrome keywords matched.",
     }
 
 

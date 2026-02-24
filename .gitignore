@@ -11,8 +11,10 @@ __pycache__/
 .venv/
 venv/
 
-# Synth / raw data
-data_synth/
+# Synth / raw data — ignore large generated files, track gold reference data
+data_synth/*.csv
+data_synth/synth_*.jsonl
+data_synth/sim_*.jsonl
 data_raw/
 
 # Archives
