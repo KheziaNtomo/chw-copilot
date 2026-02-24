@@ -178,9 +178,16 @@ def normalise_patient(raw: dict, note_text: str = "") -> dict:
         age_years = int(age_years) if age_years else None
     except (ValueError, TypeError):
         age_years = None
+    age_months = raw.get("age_months")
+    try:
+        age_months = int(age_months) if age_months else None
+    except (ValueError, TypeError):
+        age_months = None
     patient = {"age_group": age_group, "sex": sex}
     if age_years is not None:
         patient["age_years"] = age_years
+    if age_months is not None:
+        patient["age_months"] = age_months
     return patient
 
 
@@ -379,10 +386,12 @@ def sub_syndrome_hint(encounter: dict, syndrome_tag: str) -> str:
     if has_cough and has_fast_br:
         return "pneumonia-like"
 
-    # Malaria-like: fever + chills/rigors but NO cough
-    malaria_clues = any(kw in note for kw in ["chill", "rigor", "shaking", "rdt", "malaria", "swamp"])
-    if has_fever and malaria_clues and not has_cough:
-        return "malaria-like"
+    # Malaria-like: fever + strong malaria clues (chills/rigors/RDT/malaria mention)
+    malaria_clues = [kw for kw in ["chill", "rigor", "shaking", "rdt", "malaria", "swamp"] if kw in note]
+    if has_fever and malaria_clues:
+        # Strong malaria signal even if cough present (cough can accompany malaria)
+        if len(malaria_clues) >= 2 or not has_cough:
+            return "malaria-like"
 
     # Fever + cough but no fast breathing → upper respiratory
     if has_fever and has_cough and not has_fast_br:
