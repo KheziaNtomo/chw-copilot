@@ -54,21 +54,32 @@ def parse_json_response(text: str):
 # ── MedGemma inference ─────────────────────────────────────────────────────────
 
 def run_medgemma(prompt: str, model, tokenizer, max_new_tokens: int = 1024) -> str:
-    """Run a single MedGemma inference with chat template."""
-    messages = [{"role": "user", "content": prompt}]
-    input_text = tokenizer.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True
-    )
-    inputs = tokenizer(input_text, return_tensors="pt").to(model.device)
+    """Run a single MedGemma inference with chat template.
+
+    Uses AutoProcessor.apply_chat_template(tokenize=True) as per the
+    official medgemma-4b-it model card on HuggingFace.
+    The 'tokenizer' argument is actually an AutoProcessor instance.
+    """
+    # MedGemma expects content as list of typed dicts
+    messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
+
+    inputs = tokenizer.apply_chat_template(
+        messages,
+        tokenize=True,
+        add_generation_prompt=True,
+        return_dict=True,
+        return_tensors="pt",
+    ).to(model.device)
+
+    input_len = inputs["input_ids"].shape[-1]
     with torch.no_grad():
         outputs = model.generate(
             **inputs,
             max_new_tokens=max_new_tokens,
             do_sample=False,
-            pad_token_id=tokenizer.eos_token_id,
         )
     return tokenizer.decode(
-        outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True
+        outputs[0][input_len:], skip_special_tokens=True
     ).strip()
 
 
