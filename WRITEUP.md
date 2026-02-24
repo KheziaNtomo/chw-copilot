@@ -57,8 +57,10 @@ I built CHW Copilot as an agentic pipeline where **MedGemma 4B-IT** serves as th
 
 | Metric | Value |
 |--------|-------|
+| Syndrome tag accuracy (MedGemma) | 85.0% (51/60 gold-standard encounters) |
 | Syndrome tag accuracy (keyword fallback) | 95.0% (57/60 gold-standard encounters) |
-| Processing time per note | ~1 minute (T4 GPU, bfloat16 precision) |
+| Evidence grounding rate | 100.0% (26/26 positive symptom claims) |
+| Processing time per note | ~26s (T4 GPU, bfloat16 precision) |
 | Model | MedGemma 4B-IT, bfloat16 (~8GB VRAM) |
 
 **Anomaly detection**: Several approaches exist in public health surveillance — z-scoring, CUSUM (cumulative sum for sustained shifts), EWMA (exponentially weighted average for seasonal adaptation), Poisson/negative binomial regression, and the Farrington algorithm (used by ECDC with quasi-Poisson trend adjustment). For this demonstration, I used simple z-scoring (count vs. 4-week rolling baseline, threshold 3.0) because it is transparent and familiar to district health officers working with DHIS2. A production system would use Farrington or CUSUM for higher specificity.

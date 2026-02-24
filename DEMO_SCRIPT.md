@@ -32,7 +32,7 @@
 >
 > General-purpose LLMs miss these. I tested them — they hallucinate clinical terms and miss the shorthand. MedGemma's medical pre-training means it understands this vocabulary immediately, without fine-tuning.
 >
-> I also built a full keyword-based fallback and tested it against 60 gold-standard CHW encounters. The keyword system reaches 95% syndrome accuracy, but it can't extract patient demographics, can't identify severity or red flags, and can't capture illness onset duration. MedGemma does all of this from a single prompt."
+> I also built a full keyword-based fallback and tested it against 60 gold-standard CHW encounters. The keyword system reaches 95% syndrome accuracy, but it can't extract patient demographics, can't identify severity or red flags, and can't capture illness onset duration. MedGemma does all of this from a single prompt — achieving 85% syndrome accuracy and 100% evidence grounding on the full 60-note gold-standard evaluation set."
 
 ---
 
@@ -76,7 +76,7 @@
 
 **[Screen: Architecture slide or back to app showing model status]**
 
-> "The demo runs on Hugging Face Spaces with a T4 GPU. MedGemma loads in bfloat16 precision — about 8 gigabytes of VRAM. Each note processes in roughly one minute.
+> "The demo runs on Hugging Face Spaces with a T4 GPU. MedGemma loads in bfloat16 precision — about 8 gigabytes of VRAM. Each note processes in roughly 26 seconds.
 >
 > For real-world deployment, the model would run on-device on an Android app — CHWs get immediate clinical feedback, red-flag alerts, and treatment recommendations even without connectivity. Structured encounters sync to the district server when connectivity returns. This is the same 'process locally, aggregate centrally' pattern that DHIS2 mobile already uses.
 >
