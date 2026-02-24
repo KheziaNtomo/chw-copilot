@@ -139,9 +139,26 @@ def render_district_view():
     )
 
     if PLOTLY_AVAILABLE:
-        # Aggregate across all locations for overview line chart
+        # Location selector
+        all_locations = sorted(weekly_data["location_name"].unique())
+        location_options = ["All Locations"] + all_locations
+        selected_location = st.radio(
+            "Filter by location",
+            location_options,
+            horizontal=True,
+            key="location_filter",
+            label_visibility="collapsed",
+        )
+
+        # Filter data if specific location selected
+        if selected_location != "All Locations":
+            chart_data = weekly_data[weekly_data["location_name"] == selected_location]
+        else:
+            chart_data = weekly_data
+
+        # Aggregate (sum across locations if "All", or just the one location)
         agg = (
-            weekly_data
+            chart_data
             .groupby(["week_id", "week_label", "syndrome_tag", "syndrome_display"])["count"]
             .sum()
             .reset_index()
