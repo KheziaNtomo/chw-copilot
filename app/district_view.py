@@ -185,14 +185,73 @@ def render_district_view():
     )
 
     sitrep = surv["sitrep"]
-    st.markdown(
-        f'<div class="glass-card" style="line-height:1.9;font-size:0.92rem;color:#1a2214;">'
-        f'{sitrep["narrative"].replace(chr(10), "<br>")}'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
+    narrative = sitrep["narrative"]
+
+    # Parse narrative into styled sections
+    sections = narrative.split("\n\n")
+    for section in sections:
+        section = section.strip()
+        if not section:
+            continue
+
+        # Header line
+        if section.startswith("WEEK") or section.startswith("week"):
+            st.markdown(
+                f'<div style="background:#1e2a1e;color:#fff;padding:0.8rem 1.2rem;'
+                f'border-radius:8px;font-size:0.85rem;font-weight:600;letter-spacing:0.04em;'
+                f'margin-bottom:0.75rem;">{section}</div>',
+                unsafe_allow_html=True,
+            )
+        # Alert section
+        elif section.startswith("ALERT"):
+            st.markdown(
+                f'<div style="background:rgba(192,57,43,0.06);border:1px solid rgba(192,57,43,0.15);'
+                f'border-left:4px solid #c0392b;padding:0.8rem 1.2rem;border-radius:0 8px 8px 0;'
+                f'font-size:0.9rem;line-height:1.7;color:#4a2020;margin-bottom:0.75rem;">'
+                f'{section.replace(chr(10), "<br>")}</div>',
+                unsafe_allow_html=True,
+            )
+        # Syndrome explanation
+        elif "SYNDROME COVERS" in section or "WHAT THIS" in section:
+            st.markdown(
+                f'<div style="background:#f5f7f2;border:1px solid #dde5d4;'
+                f'border-left:4px solid #4a6032;padding:0.8rem 1.2rem;border-radius:0 8px 8px 0;'
+                f'font-size:0.88rem;line-height:1.8;color:#2d3d1f;margin-bottom:0.75rem;">'
+                f'{section.replace(chr(10), "<br>")}</div>',
+                unsafe_allow_html=True,
+            )
+        # Recommended actions
+        elif "RECOMMENDED" in section or "ACTIONS" in section:
+            st.markdown(
+                f'<div style="background:rgba(74,96,50,0.05);border:1px solid #dde5d4;'
+                f'border-left:4px solid #7a9e5a;padding:0.8rem 1.2rem;border-radius:0 8px 8px 0;'
+                f'font-size:0.88rem;line-height:1.8;color:#2d3d1f;margin-bottom:0.75rem;">'
+                f'{section.replace(chr(10), "<br>")}</div>',
+                unsafe_allow_html=True,
+            )
+        # Data source / footer
+        elif section.startswith("Data source"):
+            st.markdown(
+                f'<div style="font-size:0.75rem;color:#8a9a7a;padding:0.4rem 0;'
+                f'border-top:1px solid #dde5d4;margin-top:0.5rem;">{section}</div>',
+                unsafe_allow_html=True,
+            )
+        # Everything else
+        else:
+            st.markdown(
+                f'<div style="background:#fff;border:1px solid #dde5d4;'
+                f'padding:0.8rem 1.2rem;border-radius:8px;'
+                f'font-size:0.88rem;line-height:1.8;color:#2d3d1f;margin-bottom:0.75rem;">'
+                f'{section.replace(chr(10), "<br>")}</div>',
+                unsafe_allow_html=True,
+            )
 
     if sitrep.get("alerts"):
+        st.markdown(
+            '<p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;'
+            'font-weight:700;color:#8a9a7a;margin:0.75rem 0 0.4rem 0;">Structured Alerts</p>',
+            unsafe_allow_html=True,
+        )
         for alert in sitrep["alerts"]:
             sev_color = {"high": "#c0392b", "medium": "#b5770d", "low": "#2e7d32"}.get(alert["severity"], "#888")
             loc_name = DEMO_LOCATIONS.get(alert["location"], {}).get("name", alert["location"])
@@ -210,6 +269,7 @@ def render_district_view():
                 f'</div>',
                 unsafe_allow_html=True,
             )
+
 
     # ── Export ───────────────────────────────────────────────────
     st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)

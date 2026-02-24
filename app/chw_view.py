@@ -210,16 +210,6 @@ def render_chw_view():
                 selected_result = st.session_state.custom_result
                 selected_note = st.session_state.custom_note
 
-    with tab_voice:
-        st.markdown("Upload an audio recording of a CHW field visit.")
-        audio_file = st.file_uploader("Upload audio file", type=["wav", "mp3", "m4a", "ogg"])
-        if audio_file:
-            st.audio(audio_file)
-            if st.button("🎤 Transcribe & Process", type="primary"):
-                st.info("🔌 MedASR integration: In production, this audio would be transcribed by Google MedASR and fed into the pipeline.")
-                selected_result = DEMO_RESULTS[0]
-                selected_note = DEMO_RESULTS[0]["encounter"].get("note_text", DEMO_NOTES[0]["note_text"])
-
     with tab_demo:
         demo_cols = st.columns(len(DEMO_NOTES) + 1)
         for i, note in enumerate(DEMO_NOTES):

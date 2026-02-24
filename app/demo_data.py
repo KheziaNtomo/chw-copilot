@@ -271,7 +271,7 @@ DEMO_SURVEILLANCE = {
             "baseline_mean": 3.75,
             "ratio": 3.2,
             "alert": True,
-            "message": "Respiratory fever cases at loc_01 are 3.2x above baseline (12 vs mean 3.75)",
+            "message": "Respiratory fever cases at Kibera Health Post are 3.2× above baseline (12 vs mean 3.75)",
         },
     ],
     "sitrep": {
