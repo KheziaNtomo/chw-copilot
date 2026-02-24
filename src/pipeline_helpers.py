@@ -54,49 +54,51 @@ def parse_json_response(text: str):
 # ── MedGemma inference ─────────────────────────────────────────────────────────
 
 def run_medgemma(prompt: str, model, tokenizer, max_new_tokens: int = 1024) -> str:
-    """Run a single MedGemma inference with chat template."""
+    """Run a single MedGemma inference.
+
+    Compatible with both AutoTokenizer (old medgemma-4b-it) and
+    AutoProcessor (medgemma-1.5-4b-it).
+    """
     messages = [{"role": "user", "content": prompt}]
-    input_text = tokenizer.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True
-    )
-    inputs = tokenizer(input_text, return_tensors="pt").to(model.device)
+
+    # AutoProcessor (MedGemma 1.5) supports tokenize=True + return_dict
+    try:
+        inputs = tokenizer.apply_chat_template(
+            messages,
+            tokenize=True,
+            add_generation_prompt=True,
+            return_dict=True,
+            return_tensors="pt",
+        ).to(model.device)
+    except TypeError:
+        # Fallback for AutoTokenizer (older API)
+        input_text = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        inputs = tokenizer(input_text, return_tensors="pt").to(model.device)
+
+    input_len = inputs["input_ids"].shape[-1]
     with torch.no_grad():
         outputs = model.generate(
             **inputs,
             max_new_tokens=max_new_tokens,
             do_sample=False,
-            pad_token_id=tokenizer.eos_token_id,
         )
     return tokenizer.decode(
-        outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True
+        outputs[0][input_len:], skip_special_tokens=True
     ).strip()
 
 
 def run_medgemma_batch(prompts: list, model, tokenizer, max_new_tokens: int = 1024) -> list:
-    """Run multiple prompts in a single GPU batch for ~batch_size x throughput."""
-    formatted = [
-        tokenizer.apply_chat_template(
-            [{"role": "user", "content": p}], tokenize=False, add_generation_prompt=True
-        )
-        for p in prompts
-    ]
-    # Pad left so all sequences are the same length (generation works from right)
-    tokenizer.padding_side = "left"
-    inputs = tokenizer(
-        formatted, return_tensors="pt", padding=True, truncation=True, max_length=1024
-    ).to(model.device)
-    with torch.no_grad():
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            do_sample=False,
-            pad_token_id=tokenizer.eos_token_id,
-        )
-    input_len = inputs["input_ids"].shape[1]
-    return [
-        tokenizer.decode(out[input_len:], skip_special_tokens=True).strip()
-        for out in outputs
-    ]
+    """Run multiple prompts in a single GPU batch for ~batch_size x throughput.
+
+    Compatible with both AutoTokenizer and AutoProcessor.
+    """
+    results = []
+    for p in prompts:
+        results.append(run_medgemma(p, model, tokenizer, max_new_tokens))
+    return results
+
 
 
 
