@@ -1,7 +1,7 @@
 """Pre-computed demo data for offline Streamlit demonstration.
 
 Contains representative CHW notes, full pipeline outputs (including
-agent traces), and a failure mode example showing Strawberry catching
+agent traces), and a failure mode example showing the hallucination detector catching
 a hallucination. Works without GPU/model access.
 """
 
@@ -535,13 +535,13 @@ DEMO_RESULTS = [
 ]
 
 # ── Failure Mode Demo ────────────────────────────────────────
-# Shows Strawberry catching a procedural hallucination
+# Shows the hallucination detector catching a procedural hallucination
 FAILURE_MODE = {
     "title": "🚨 Failure Mode: Hallucination Detected",
     "description": (
         "This example shows MedGemma reporting 'rash: yes' even though "
         "the note says 'no rash observed.' The evidence quote exists in "
-        "the note (passing enforce_evidence), but Strawberry detects that "
+        "the note (passing enforce_evidence), but the hallucination detector finds that "
         "the quote contradicts the claim."
     ),
     "note_text": (
@@ -588,7 +588,7 @@ FAILURE_MODE = {
     "agent_trace": [
         {"agent": "extract", "name": "Encounter Extractor", "duration_s": 2.105, "fallback_used": False, "output_summary": "Extracted encounter with 3 positive symptoms"},
         {"agent": "evidence_enforce", "name": "Evidence Grounder", "duration_s": 0.001, "fallback_used": False, "output_summary": "0 claims downgraded (quote IS in note)"},
-        {"agent": "strawberry_verify", "name": "Hallucination Detector", "duration_s": 1.520, "fallback_used": False, "output_summary": "Checked 3 claims, 1 FLAGGED — rash claim contradicted"},
+        {"agent": "hallucination_check", "name": "Hallucination Detector", "duration_s": 1.520, "fallback_used": False, "output_summary": "Checked 3 claims, 1 FLAGGED — rash claim contradicted"},
         {"agent": "tag", "name": "Syndrome Tagger", "duration_s": 1.102, "fallback_used": False, "output_summary": "Tagged as respiratory_fever (high)"},
     ],
 }

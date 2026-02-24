@@ -4,7 +4,7 @@ Features:
 - Note entry (text area) + voice note upload
 - Side-by-side view: raw note with evidence ↔ structured encounter
 - Evidence grounding visual (grounded ✓ / downgraded ⚠ / flagged 🚨)
-- Strawberry hallucination detection results
+- Hallucination detection results
 - Syndrome tag badge with trigger quotes
 - Follow-up checklist with priority colors
 - Pipeline trace (collapsible agent-by-agent view)
@@ -279,18 +279,18 @@ def render_chw_view():
             )
 
         with col_result:
-            st.markdown("**Strawberry Detection:**")
+            st.markdown("**Hallucination Detection:**")
             hc = FAILURE_MODE["hallucination_check"]
             for fc in hc.get("flagged_claims", []):
                 st.markdown(
                     f'<div class="evidence-flagged">'
                     f'🚨 <strong>{fc["claim"]}</strong><br>'
-                    f'<small>Budget gap: {fc["budget_gap"]:.1f} bits — {fc["reason"]}</small>'
+                    f'<small>Confidence gap: {fc["budget_gap"]:.1f} bits — {fc["reason"]}</small>'
                     f'</div>',
                     unsafe_allow_html=True,
                 )
 
-            st.markdown("**Budget Gaps (bits):**")
+            st.markdown("**Confidence Scores (bits):**")
             for claim, gap in hc.get("budget_gaps", {}).items():
                 color = "#ef4444" if gap > 2 else ("#f59e0b" if gap > 0 else "#22c55e")
                 label = "FLAGGED" if gap > 2 else ("Suspicious" if gap > 0 else "Supported")
