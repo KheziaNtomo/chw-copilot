@@ -429,6 +429,128 @@ def generate_recommendations(encounter: dict, syndrome_tag: str) -> list:
 
 # ── Full single-pass pipeline ──────────────────────────────────────────────────
 
+# ── Keyword-based fallback extraction ─────────────────────────────────────────
+# When MedGemma returns 0 chars, extract basic structured data from keywords.
+
+import re as _re
+
+def keyword_fallback_extract(note_text: str) -> dict:
+    """Extract structured encounter data from note text using keyword matching.
+
+    This is a safety net when MedGemma generation fails (0 chars).
+    It uses the same keyword lists as the syndrome tagger.
+    """
+    note = note_text.lower()
+
+    # ── Symptoms ──
+    symptoms = {}
+    symptom_keywords = {
+        "fever": FEVER_KEYWORDS,
+        "cough": ["cough", "coughing"],
+        "diarrhea": ["diarrhea", "diarrhoea", "loose stool", "watery stool", "running stomach"],
+        "vomiting": ["vomiting", "vomit", "throwing up"],
+        "rash": ["rash", "skin rash", "rashes"],
+        "difficulty_breathing": ["difficulty breathing", "hard to breathe", "fast breathing",
+                                  "rapid breathing", "shortness of breath", "chest indrawing",
+                                  "chest pulling", "noisy breathing", "wheezing"],
+    }
+    for sym, keywords in symptom_keywords.items():
+        matched_kw = None
+        for kw in keywords:
+            if kw in note:
+                if not _is_negated(kw, note):
+                    matched_kw = kw
+                    break
+        # Check for negation pattern like "no diarrhea"
+        negated = False
+        for kw in keywords:
+            if kw in note and _is_negated(kw, note):
+                negated = True
+                break
+        if matched_kw:
+            symptoms[sym] = {"value": "yes", "evidence_quote": matched_kw}
+        elif negated:
+            symptoms[sym] = {"value": "no", "evidence_quote": f"no {keywords[0]}"}
+        else:
+            symptoms[sym] = {"value": "unknown", "evidence_quote": ""}
+
+    # ── Patient demographics ──
+    patient = {}
+    # Age: look for patterns like "3yo", "3 year", "3yr", "child 3", "9 months"
+    age_match = _re.search(r'(\d+)\s*(?:yo|y\.?o\.?|year|yr|years)', note)
+    if age_match:
+        patient["age_years"] = int(age_match.group(1))
+    month_match = _re.search(r'(\d+)\s*(?:mo|month|months|m\.?o\.?)', note)
+    if month_match and "age_years" not in patient:
+        patient["age_months"] = int(month_match.group(1))
+        patient["age_years"] = 0
+    # Also try "child Xyo" or "X year old"
+    if "age_years" not in patient:
+        age_match2 = _re.search(r'(?:child|baby|infant|boy|girl)\s+(\d+)', note)
+        if age_match2:
+            patient["age_years"] = int(age_match2.group(1))
+
+    # Sex
+    if any(w in note for w in ["male", " boy ", " son "]):
+        if not any(w in note for w in ["female"]):
+            patient["sex"] = "male"
+    if any(w in note for w in ["female", " girl ", " daughter ", "woman"]):
+        patient["sex"] = "female"
+    patient.setdefault("sex", "unknown")
+
+    # ── Severity & red flags ──
+    red_flag_keywords = {
+        "unable_to_drink": ["unable to drink", "cannot drink", "refuses to drink", "not drinking"],
+        "not_feeding": ["not eating", "not feeding", "refuses to eat", "not breastfeeding"],
+        "chest_indrawing": ["chest indrawing", "chest pulling", "pulling in of chest"],
+        "convulsions": ["convulsion", "seizure", "fits", "fitting"],
+        "sunken_eyes": ["sunken eyes"],
+        "persistent_vomiting": ["vomiting everything", "persistent vomiting"],
+        "dehydration_signs": ["skin pinch", "sunken fontanelle", "no urine", "dry mouth"],
+    }
+    red_flags = []
+    for flag, keywords in red_flag_keywords.items():
+        for kw in keywords:
+            if kw in note and not _is_negated(kw, note):
+                red_flags.append({"flag": flag, "evidence_quote": kw})
+                break
+
+    severity = "mild"
+    if red_flags:
+        severity = "severe"
+    elif any(kw in note for kw in ["difficulty breathing", "fast breathing", "high fever"]):
+        severity = "moderate"
+
+    # ── Onset ──
+    onset_days = None
+    onset_match = _re.search(r'(\d+)\s*(?:day|days|d)\b', note)
+    if onset_match:
+        onset_days = int(onset_match.group(1))
+
+    # ── Treatment & referral ──
+    treatments = []
+    if "ors" in note:
+        treatments.append("ORS")
+    if "paracetamol" in note or "pcm" in note:
+        treatments.append("paracetamol")
+    if "amoxicillin" in note or "antibiotic" in note:
+        treatments.append("amoxicillin")
+    if any(w in note for w in ["zinc", "zn"]):
+        treatments.append("zinc")
+
+    referral = any(w in note for w in ["refer", "referred", "health center", "clinic", "hospital"])
+
+    return {
+        "symptoms": symptoms,
+        "patient": patient,
+        "severity": severity,
+        "onset_days": onset_days,
+        "red_flags": red_flags,
+        "treatments_given": treatments,
+        "referral": referral,
+    }
+
+
 def process_note(
     note_text: str,
     encounter_id: str,
@@ -442,6 +564,7 @@ def process_note(
     Single-pass CHW note processor.
     - One MedGemma call for structured extraction + checklist
     - Fast keyword classifier for syndrome tagging (no extra LLM call)
+    - Keyword fallback if MedGemma returns empty
     """
     result = {"encounter_id": encounter_id, "errors": []}
     t0 = time.time()
@@ -461,6 +584,13 @@ def process_note(
     except Exception as e:
         result["errors"].append(f"generation_error: {e}")
         parsed = {}
+
+    # ── Keyword fallback when LLM returns empty ──────────────────────────────
+    used_fallback = False
+    if not parsed or not parsed.get("symptoms"):
+        parsed = keyword_fallback_extract(note_text)
+        used_fallback = True
+        print("  ⚠️  MedGemma returned empty — using keyword fallback extraction")
 
     # Prompt now returns flat extraction JSON (no 'encounter' wrapper)
     note_lower = note_text.lower()
