@@ -89,7 +89,18 @@ def _normalise_claim(claim, note_lower: str) -> dict:
     if val not in ("yes", "no"):
         val = "unknown"
     quote = claim.get("evidence_quote")
-    if val == "yes" and (not quote or quote.lower() not in note_lower):
+    if val == "yes" and quote:
+        q = quote.lower().strip()
+        # Exact substring check first
+        if q in note_lower:
+            pass  # quote verified
+        else:
+            # Fuzzy: at least 2 words from quote appear in note
+            words = [w for w in q.split() if len(w) > 2]
+            matched = sum(1 for w in words if w in note_lower)
+            if matched < min(2, len(words)):
+                val, quote = "unknown", None
+    elif val == "yes" and not quote:
         val, quote = "unknown", None
     return {
         "value": val,

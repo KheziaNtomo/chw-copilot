@@ -294,7 +294,7 @@ def render_chw_view():
 
     encounter = selected_result["encounter"]
     syndrome = selected_result["syndrome_tag"]
-    checklist = selected_result["checklist"]
+    recommendations = selected_result.get("recommendations", [])
     hallucination = selected_result.get("hallucination_check", {})
     budget_gaps = hallucination.get("budget_gaps", {})
 
@@ -322,8 +322,9 @@ def render_chw_view():
             f'<div class="glass-card">'
             f'<strong>Patient:</strong> {age}y {sex} &nbsp;|&nbsp; '
             f'<strong>Severity:</strong> {severity} &nbsp;|&nbsp; '
-            f'<strong>Onset:</strong> {encounter.get("onset", "?")} &nbsp;|&nbsp; '
-            f'<strong>Referral:</strong> {"Yes ✓" if encounter.get("referral") else "No"}'
+            f'<strong>Onset:</strong> {encounter.get("onset_days", "?")} day(s) ago'
+            f'  <span style="color:#64748b;font-size:0.8rem">(est. onset week {encounter.get("estimated_onset_week", "?")})  </span>'
+            f'&nbsp;|&nbsp; <strong>Referral:</strong> {"Yes ✓" if encounter.get("referral") else "No"}'
             f'</div>',
             unsafe_allow_html=True,
         )
@@ -373,39 +374,45 @@ def render_chw_view():
             unsafe_allow_html=True,
         )
 
+        sub = syndrome.get("sub_syndrome")
+        if sub:
+            sub_colors = {
+                "pneumonia-like": "#f59e0b",
+                "malaria-like":   "#a78bfa",
+                "TB-like":        "#f87171",
+                "upper-respiratory": "#60a5fa",
+            }
+            sc = sub_colors.get(sub, "#94a3b8")
+            st.markdown(
+                f'<div style="margin-top:0.5rem;">'  
+                f'<span style="background:rgba(0,0,0,0.3);color:{sc};'
+                f'padding:4px 12px;border-radius:20px;font-size:0.8rem;font-weight:600;">'
+                f'🔍 {sub.upper()}</span></div>',
+                unsafe_allow_html=True,
+            )
+
         if syndrome.get("trigger_quotes"):
             st.markdown("**Trigger Quotes:**")
             for tq in syndrome["trigger_quotes"]:
                 st.markdown(f'<span class="evidence-quote">"…{tq}…"</span>', unsafe_allow_html=True)
 
-    # ── Checklist ────────────────────────────────────────────
+    # ── ICCM Recommendations ─────────────────────────────────
     with col_check:
-        st.markdown("### 📋 Follow-up Checklist")
-        questions = checklist.get("questions", [])
-        if questions:
-            for q in questions:
-                priority = q.get("priority", "medium")
-                p_icon = {"high": "🔴", "medium": "🟡", "low": "🔵"}.get(priority, "⚪")
-                st.markdown(f"{p_icon} **[{priority.upper()}]** {q['question']}")
-        else:
-            st.info("No follow-up questions needed — encounter is complete.")
-
-    # ── Hallucination Check Summary ──────────────────────────
-    if hallucination and hallucination.get("available"):
-        st.markdown("---")
-        st.markdown("### 🍓 Strawberry Hallucination Check")
-        hc = hallucination
-        if hc.get("flagged"):
-            st.error(f"⚠️ {len(hc['flagged_claims'])} claim(s) flagged as potentially hallucinated")
-            for fc in hc["flagged_claims"]:
+        st.markdown("### 📋 ICCM Recommendations")
+        if recommendations:
+            for rec in recommendations:
+                is_urgent = rec.startswith("🚨")
+                bg = "rgba(239,68,68,0.15)" if is_urgent else "rgba(255,255,255,0.05)"
+                border = "#ef4444" if is_urgent else "#334155"
                 st.markdown(
-                    f'<div class="evidence-flagged">'
-                    f'🚨 <strong>{fc["claim"]}</strong> — budget gap: {fc["budget_gap"]:.1f} bits'
-                    f'</div>',
+                    f'<div style="background:{bg};border-left:3px solid {border};'
+                    f'padding:0.5rem 0.75rem;margin-bottom:0.4rem;border-radius:4px;'
+                    f'font-size:0.9rem;line-height:1.5;">'
+                    f'{rec}</div>',
                     unsafe_allow_html=True,
                 )
         else:
-            st.success(f"✅ All {hc.get('claims_checked', 0)} claims verified — no hallucinations detected")
+            st.info("No recommendations generated.")
 
     # ── Pipeline Trace ───────────────────────────────────────
     st.markdown("---")

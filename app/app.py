@@ -93,12 +93,12 @@ with st.sidebar:
     # Pipeline info
     st.markdown("### ⚙️ Pipeline Agents")
     agents = [
-        ("🔬", "Encounter Extractor", "MedGemma 1.5"),
-        ("✅", "Evidence Grounder", "Deterministic"),
-        ("🍓", "Hallucination Detector", "Strawberry"),
-        ("🏷️", "Syndrome Tagger", "MedGemma 1.5"),
-        ("📋", "Checklist Generator", "MedGemma 1.5"),
-        ("📐", "Schema Validator", "Deterministic"),
+        ("🔬", "Encounter Extractor",    "MedGemma 4b"),
+        ("✅", "Evidence Grounder",       "Deterministic"),
+        ("🏷️", "Syndrome Tagger",         "Keyword rules"),
+        ("🔍", "Sub-syndrome Classifier", "Rule-based"),
+        ("📋", "ICCM Recommendations",   "Rule-based"),
+        ("📐", "Schema Validator",        "Deterministic"),
     ]
     for icon, name, engine in agents:
         st.markdown(
