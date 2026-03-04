@@ -286,45 +286,66 @@ def render_district_view():
         # Use dynamic anomaly detection for map
         alert_locations = alert_loc_ids
 
-        # Build map data
-        map_lats, map_lons, map_names, map_colors, map_sizes, map_hover = [], [], [], [], [], []
+        # Build map data split into alert / normal
+        alert_data = {"lats": [], "lons": [], "names": [], "hover": []}
+        normal_data = {"lats": [], "lons": [], "names": [], "hover": []}
         for loc_id, loc_info in DEMO_LOCATIONS.items():
             loc_name = loc_info.get("name", loc_id)
             is_alert = loc_id in alert_locations
 
-            # Compute latest-week case summary for hover
             loc_latest = latest[latest["location_id"] == loc_id]
-            case_summary = " · ".join(
+            case_summary = " \u00b7 ".join(
                 f"{row['syndrome_display']}: {int(row['count'])}"
                 for _, row in loc_latest.iterrows()
             ) or "No data"
 
-            map_lats.append(loc_info["lat"])
-            map_lons.append(loc_info["lon"])
-            map_names.append(loc_name)
-            map_colors.append("#c0392b" if is_alert else "#4a6032")
-            map_sizes.append(22 if is_alert else 14)
             status = "ALERT" if is_alert else "Normal"
-            map_hover.append(
+            hover = (
                 f"<b>{loc_name}</b><br>"
                 f"Status: {status}<br>"
                 f"Week {latest_week}: {case_summary}"
             )
 
-        map_fig = go.Figure(go.Scattermapbox(
-            lat=map_lats,
-            lon=map_lons,
-            mode="markers+text",
-            marker=dict(size=map_sizes, color=map_colors, opacity=0.85),
-            text=map_names,
-            textposition="top center",
-            textfont=dict(size=11, color="#1e2a1e", family="Inter"),
-            hovertext=map_hover,
-            hoverinfo="text",
-        ))
+            target = alert_data if is_alert else normal_data
+            target["lats"].append(loc_info["lat"])
+            target["lons"].append(loc_info["lon"])
+            target["names"].append(loc_name)
+            target["hover"].append(hover)
 
-        center_lat = sum(map_lats) / len(map_lats)
-        center_lon = sum(map_lons) / len(map_lons)
+        map_fig = go.Figure()
+
+        # Alert trace
+        if alert_data["lats"]:
+            map_fig.add_trace(go.Scattermapbox(
+                lat=alert_data["lats"], lon=alert_data["lons"],
+                mode="markers+text",
+                marker=dict(size=22, color="#c0392b", opacity=0.85),
+                text=alert_data["names"],
+                textposition="top center",
+                textfont=dict(size=11, color="#1e2a1e", family="Inter"),
+                hovertext=alert_data["hover"],
+                hoverinfo="text",
+                name="Alert (outlier detected)",
+            ))
+
+        # Normal trace
+        if normal_data["lats"]:
+            map_fig.add_trace(go.Scattermapbox(
+                lat=normal_data["lats"], lon=normal_data["lons"],
+                mode="markers+text",
+                marker=dict(size=14, color="#4a6032", opacity=0.85),
+                text=normal_data["names"],
+                textposition="top center",
+                textfont=dict(size=11, color="#1e2a1e", family="Inter"),
+                hovertext=normal_data["hover"],
+                hoverinfo="text",
+                name="Normal",
+            ))
+
+        all_lats = alert_data["lats"] + normal_data["lats"]
+        all_lons = alert_data["lons"] + normal_data["lons"]
+        center_lat = sum(all_lats) / len(all_lats)
+        center_lon = sum(all_lons) / len(all_lons)
 
         map_fig.update_layout(
             mapbox=dict(
@@ -335,19 +356,15 @@ def render_district_view():
             margin=dict(l=0, r=0, t=0, b=0),
             height=300,
             paper_bgcolor="rgba(0,0,0,0)",
+            legend=dict(
+                orientation="h",
+                y=1.02,
+                x=0,
+                bgcolor="rgba(255,255,255,0.8)",
+                font=dict(size=11, family="Inter"),
+            ),
         )
         st.plotly_chart(map_fig, use_container_width=True, config={"displayModeBar": False})
-
-        # Legend
-        st.markdown(
-            '<div style="display:flex;gap:1.5rem;font-size:0.78rem;color:#4a5a3a;margin-top:0.3rem;">'
-            '<span><span style="display:inline-block;width:10px;height:10px;background:#c0392b;'
-            'border-radius:50%;margin-right:4px;"></span>Alert (outlier detected)</span>'
-            '<span><span style="display:inline-block;width:10px;height:10px;background:#4a6032;'
-            'border-radius:50%;margin-right:4px;"></span>Normal</span>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
 
     # ── Syndrome Trends Line Chart (with date + illness toggles) ──────
     st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
@@ -364,9 +381,9 @@ def render_district_view():
         # ── Filter controls: Date range + Syndrome + Location ──
         filter_row1, filter_row2, filter_row3 = st.columns([2, 2, 2])
 
-        all_week_ids = sorted(weekly_data["week_id"].unique())
-        min_week = int(min(all_week_ids))
-        max_week = int(max(all_week_ids))
+        all_week_ids_chart = sorted(w for w in weekly_data["week_id"].unique() if w <= latest_week)
+        min_week = int(min(all_week_ids_chart))
+        max_week = int(max(all_week_ids_chart))
 
         with filter_row1:
             week_range = st.slider(
@@ -421,6 +438,7 @@ def render_district_view():
         chart_data = weekly_data[
             (weekly_data["week_id"] >= week_range[0]) &
             (weekly_data["week_id"] <= week_range[1]) &
+            (weekly_data["week_id"] <= latest_week) &
             (weekly_data["syndrome_tag"].isin(active_syns))
         ]
 
@@ -541,7 +559,6 @@ def render_district_view():
                 gridcolor="rgba(0,0,0,0.05)",
                 linecolor="#dde5d4",
                 rangemode="tozero",
-                dtick=1,
             ),
             legend=dict(
                 bgcolor="rgba(255,255,255,0.8)",
