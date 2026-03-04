@@ -327,6 +327,20 @@ def render_district_view():
                 key="loc_select",
             )
 
+            # Colour multiselect chips to match line colours
+            if selected_locations:
+                chip_css = ""
+                for i, loc in enumerate(selected_locations):
+                    c = loc_color_map.get(loc, "#444") if loc != "Overall" else "#444"
+                    # Target the i-th tag inside THIS multiselect (last one on page)
+                    chip_css += (
+                        f'div[data-testid="stMultiSelect"]:last-of-type '
+                        f'span[data-baseweb="tag"]:nth-of-type({i + 1}) '
+                        f'{{ background-color: {c} !important; '
+                        f'border-color: {c} !important; color: white !important; }}\n'
+                    )
+                st.markdown(f'<style>{chip_css}</style>', unsafe_allow_html=True)
+
         # Resolve "Overall" vs individual locations
         active_syns = selected_syndromes if selected_syndromes else all_syndromes
         use_overall = "Overall" in selected_locations
