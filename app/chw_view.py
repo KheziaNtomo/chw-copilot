@@ -387,8 +387,13 @@ def render_chw_view():
     for name, data in encounter.get("other_symptoms", {}).items():
         if isinstance(data, dict):
             value = data.get("value", "unknown")
+            quote = data.get("evidence_quote", "")
             display_name = name.replace("_", " ").title()
-            symptoms_unknown.append((display_name, value))
+            if value == "yes":
+                grounding = "Grounded" if quote else "No evidence"
+                symptoms_yes.append((display_name, quote, grounding))
+            else:
+                symptoms_unknown.append((display_name, value))
 
     for flag in encounter.get("red_flags", []):
         if isinstance(flag, dict):
@@ -429,8 +434,8 @@ def render_chw_view():
         st.markdown(
             f'<div {card_top}>'
             f'<div {card_header} style="padding:0.5rem 0.75rem;font-size:0.65rem;text-transform:uppercase;'
-            f'letter-spacing:0.1em;font-weight:700;background:rgba(90,122,74,0.08);color:#5a7a4a;'
-            f'border-bottom:2px solid #5a7a4a;">Symptoms Extracted ({len(symptoms_yes)})</div>'
+            f'letter-spacing:0.1em;font-weight:700;background:rgba(46,125,50,0.10);color:#2e7d32;'
+            f'border-bottom:2px solid #2e7d32;">Symptoms Extracted ({len(symptoms_yes)})</div>'
             f'<div {card_body}>{items_html}</div>'
             f'</div>',
             unsafe_allow_html=True,
