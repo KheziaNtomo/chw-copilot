@@ -62,3 +62,5 @@ medgemma_chw_lora/
 *.swp
 .DS_Store
 Thumbs.db
+
+WRITEUP.md
