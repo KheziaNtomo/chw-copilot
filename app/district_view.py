@@ -24,7 +24,7 @@ def _recommend(alert):
 
 SYNDROME_DISPLAY = {
     "respiratory_fever":   "Respiratory Fever Syndrome",
-    "acute_watery_diarrhea": "Acute Watery Diarrhea",
+    "acute_watery_diarrhea": "Acute Watery Diarrhoea",
     "other":    "Other Syndromes",
     "unclear":  "Unclear Presentation",
 }

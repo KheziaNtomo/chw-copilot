@@ -9,7 +9,7 @@ a hallucination. Works without GPU/model access.
 DEMO_NOTES = [
     {
         "id": "demo_001",
-        "title": "Respiratory case — pediatric",
+        "title": "Respiratory case — paediatric",
         "note_text": (
             "Child 3yo M fever 3 days cough bad rash on chest "
             "no diarrhea mother says not eating gave ORS referred health center"
@@ -19,7 +19,7 @@ DEMO_NOTES = [
     },
     {
         "id": "demo_002",
-        "title": "Acute watery diarrhea — infant",
+        "title": "Acute watery diarrhoea — infant",
         "note_text": (
             "Baby 9 months F watery diarrhea 2 days vomiting unable to drink "
             "sunken eyes mother reports no urine since morning gave ORS "
