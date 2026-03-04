@@ -356,13 +356,13 @@ def render_chw_view():
     )
 
     # ================================================================
-    # ROW 2: Three boxes — Symptoms Extracted | Symptoms Unknown | Red Flags
+    # ROW 2: Three card boxes — Symptoms Extracted | Symptoms Unknown | Red Flags
     # ================================================================
-    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
 
     # Categorise symptoms
-    symptoms_yes = []  # extracted / grounded
-    symptoms_unknown = []  # unknown or absent
+    symptoms_yes = []
+    symptoms_unknown = []
     red_flags = []
 
     for name, data in encounter.get("symptoms", {}).items():
@@ -371,7 +371,6 @@ def render_chw_view():
             quote = data.get("evidence_quote", "")
             display_name = name.replace("_", " ").title()
             if value == "yes":
-                # Check grounding
                 matching_gap = None
                 if budget_gaps:
                     for k, v in budget_gaps.items():
@@ -398,69 +397,94 @@ def render_chw_view():
                 flag.get("evidence_quote", ""),
             ))
 
+    # Card style constants
+    card_top = (
+        'style="border:1px solid rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;height:100%;"'
+    )
+    card_header = (
+        'style="padding:0.5rem 0.75rem;font-size:0.65rem;text-transform:uppercase;'
+        'letter-spacing:0.1em;font-weight:700;"'
+    )
+    card_body = 'style="padding:0.75rem;"'
+
     col_extracted, col_unknown, col_flags = st.columns(3)
 
     with col_extracted:
-        st.markdown(
-            '<p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;'
-            'font-weight:700;color:#5a7a4a;margin-bottom:0.4rem;">Symptoms Extracted</p>',
-            unsafe_allow_html=True,
-        )
+        items_html = ""
         if symptoms_yes:
             for name, quote, grounding in symptoms_yes:
-                quote_html = f'<br><span style="color:#6a6255;font-size:0.8rem;font-style:italic;">"{quote}"</span>' if quote else ""
-                grounding_color = "#5a7a4a" if "Grounded" in grounding else "#c0392b"
-                st.markdown(
-                    f'<div style="padding:0.35rem 0;border-bottom:1px solid rgba(0,0,0,0.05);">'
+                g_color = "#5a7a4a" if "Grounded" in grounding else "#c0392b"
+                quote_html = f'<div style="color:#6a6255;font-size:0.78rem;font-style:italic;margin:0.15rem 0 0 1.1rem;">"{quote}"</div>' if quote else ""
+                items_html += (
+                    f'<div style="padding:0.4rem 0;border-bottom:1px solid rgba(0,0,0,0.04);">'
                     f'<span style="color:#5a7a4a;font-weight:700;">&#10003;</span> '
-                    f'<strong>{name}</strong> '
-                    f'<span style="color:{grounding_color};font-size:0.75rem;">({grounding})</span>'
+                    f'<strong style="font-size:0.9rem;">{name}</strong> '
+                    f'<span style="color:{g_color};font-size:0.72rem;">({grounding})</span>'
                     f'{quote_html}'
-                    f'</div>',
-                    unsafe_allow_html=True,
+                    f'</div>'
                 )
         else:
-            st.markdown('<span style="color:#6a6255">None extracted</span>', unsafe_allow_html=True)
+            items_html = '<div style="color:#6a6255;padding:0.5rem 0;">None extracted</div>'
 
-    with col_unknown:
         st.markdown(
-            '<p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;'
-            'font-weight:700;color:#b5770d;margin-bottom:0.4rem;">Symptoms Unknown / Absent</p>',
+            f'<div {card_top}>'
+            f'<div {card_header} style="padding:0.5rem 0.75rem;font-size:0.65rem;text-transform:uppercase;'
+            f'letter-spacing:0.1em;font-weight:700;background:rgba(90,122,74,0.08);color:#5a7a4a;'
+            f'border-bottom:2px solid #5a7a4a;">Symptoms Extracted ({len(symptoms_yes)})</div>'
+            f'<div {card_body}>{items_html}</div>'
+            f'</div>',
             unsafe_allow_html=True,
         )
+
+    with col_unknown:
+        items_html = ""
         if symptoms_unknown:
             for name, value in symptoms_unknown:
                 icon = '<span style="color:#c0392b;">&#10007;</span>' if value == "no" else '<span style="color:#b5770d;">?</span>'
                 label = "absent" if value == "no" else "unknown"
-                st.markdown(
-                    f'<div style="padding:0.35rem 0;border-bottom:1px solid rgba(0,0,0,0.05);">'
-                    f'{icon} <strong>{name}</strong> '
-                    f'<span style="color:#6a6255;font-size:0.8rem;">({label})</span>'
-                    f'</div>',
-                    unsafe_allow_html=True,
+                items_html += (
+                    f'<div style="padding:0.4rem 0;border-bottom:1px solid rgba(0,0,0,0.04);">'
+                    f'{icon} <strong style="font-size:0.9rem;">{name}</strong> '
+                    f'<span style="color:#6a6255;font-size:0.72rem;">({label})</span>'
+                    f'</div>'
                 )
         else:
-            st.markdown('<span style="color:#6a6255">None</span>', unsafe_allow_html=True)
+            items_html = '<div style="color:#6a6255;padding:0.5rem 0;">None</div>'
 
-    with col_flags:
         st.markdown(
-            '<p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;'
-            'font-weight:700;color:#c0392b;margin-bottom:0.4rem;">Red Flags</p>',
+            f'<div {card_top}>'
+            f'<div style="padding:0.5rem 0.75rem;font-size:0.65rem;text-transform:uppercase;'
+            f'letter-spacing:0.1em;font-weight:700;background:rgba(181,119,13,0.08);color:#b5770d;'
+            f'border-bottom:2px solid #b5770d;">Symptoms Unknown / Absent ({len(symptoms_unknown)})</div>'
+            f'<div {card_body}>{items_html}</div>'
+            f'</div>',
             unsafe_allow_html=True,
         )
+
+    with col_flags:
+        items_html = ""
         if red_flags:
             for name, quote in red_flags:
-                quote_html = f'<br><span style="color:#6a6255;font-size:0.8rem;font-style:italic;">"{quote}"</span>' if quote else ""
-                st.markdown(
-                    f'<div style="padding:0.35rem 0;border-bottom:1px solid rgba(0,0,0,0.05);">'
+                quote_html = f'<div style="color:#6a6255;font-size:0.78rem;font-style:italic;margin:0.15rem 0 0 1.1rem;">"{quote}"</div>' if quote else ""
+                items_html += (
+                    f'<div style="padding:0.4rem 0;border-bottom:1px solid rgba(0,0,0,0.04);">'
                     f'<span style="color:#c0392b;font-weight:700;">!</span> '
-                    f'<strong style="color:#c0392b;">{name}</strong>'
+                    f'<strong style="font-size:0.9rem;color:#c0392b;">{name}</strong>'
                     f'{quote_html}'
-                    f'</div>',
-                    unsafe_allow_html=True,
+                    f'</div>'
                 )
         else:
-            st.markdown('<span style="color:#6a6255">None identified</span>', unsafe_allow_html=True)
+            items_html = '<div style="color:#6a6255;padding:0.5rem 0;">None identified</div>'
+
+        st.markdown(
+            f'<div {card_top}>'
+            f'<div style="padding:0.5rem 0.75rem;font-size:0.65rem;text-transform:uppercase;'
+            f'letter-spacing:0.1em;font-weight:700;background:rgba(192,57,43,0.08);color:#c0392b;'
+            f'border-bottom:2px solid #c0392b;">Red Flags ({len(red_flags)})</div>'
+            f'<div {card_body}>{items_html}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
     # ================================================================
     # ROW 3: Actions Recommended (left) | Follow-up (right)
@@ -476,15 +500,31 @@ def render_chw_view():
         )
         if recommendations:
             note_lower = selected_note.lower()
+            # Smart keyword pairs: (note keyword, recommendation keyword)
+            # If note_keyword is in the note AND rec_keyword is in the recommendation, pre-tick
+            tick_pairs = [
+                ("referred", "refer"),
+                ("gave ors", "ors"),
+                ("ors", "ors"),
+                ("rdt", "rdt"),
+                ("gave act", "act"),
+                ("amoxicillin", "amoxicillin"),
+                ("zinc", "zinc"),
+                ("paracetamol", "paracetamol"),
+                ("breastfeeding", "breastfeeding"),
+                ("referred hospital", "refer"),
+                ("referred health center", "refer"),
+                ("referred urgent", "refer"),
+            ]
             for i, rec in enumerate(recommendations):
                 clean_rec = _strip_emojis(rec).strip()
                 if not clean_rec:
                     continue
-                # Pre-tick if action seems done based on the field note
-                keywords = ["gave ors", "referred", "ors", "rdt", "act", "amoxicillin",
-                            "zinc", "paracetamol", "referred health center", "referred hospital"]
-                pre_ticked = any(kw in note_lower for kw in keywords
-                                if kw in clean_rec.lower())
+                rec_lower = clean_rec.lower()
+                pre_ticked = any(
+                    note_kw in note_lower and rec_kw in rec_lower
+                    for note_kw, rec_kw in tick_pairs
+                )
                 st.checkbox(clean_rec, key=f"action_{i}", value=pre_ticked)
         else:
             st.info("No recommendations generated.")
@@ -495,6 +535,7 @@ def render_chw_view():
             'font-weight:700;color:#6a6255;margin-bottom:0.4rem;">Follow-up (WHO ICCM)</p>',
             unsafe_allow_html=True,
         )
+        checklist = selected_result.get("checklist", [])
         if checklist:
             for i, question in enumerate(checklist, 1):
                 clean_q = _strip_emojis(question).strip()
