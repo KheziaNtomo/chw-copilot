@@ -22,5 +22,5 @@ MedGemma-powered tool that transforms unstructured Community Health Worker field
 - **Offline Mode**: Falls back to deterministic rules when no GPU is available
 
 ## Setup
-Set `HF_TOKEN` in Space secrets for gated model access.
-Optionally set `PASSWORD` in secrets to protect the app.
+Set `GOOGLE_API_KEY` in `.streamlit/secrets.toml` for live MedGemma extraction.
+Get a free key at https://aistudio.google.com/apikey

@@ -50,7 +50,7 @@ def transcribe_audio(audio_path: str, language: str = "en") -> str:
 def _transcribe_with_medasr(audio_path: str, language: str) -> str:
     """Transcribe using Google MedASR.
 
-    MedASR is specialized for medical domain speech recognition,
+    MedASR is specialised for medical domain speech recognition,
     particularly effective for clinical terminology and multi-lingual
     health worker communication.
     """

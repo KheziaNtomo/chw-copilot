@@ -1,80 +1,92 @@
-"""Model loading and management for MedGemma.
+"""Model management for CHW Copilot via Google AI Studio.
 
-Lazy-loads MedGemma model using AutoModelForImageTextToText + AutoProcessor.
-Caches it so it is only loaded once per session regardless of how many calls
-are made. Uses bfloat16 precision (~8GB VRAM on T4).
+Uses the Google GenAI SDK (google-genai) for clinical extraction.
+Free tier available at https://aistudio.google.com/apikey
+
+Falls back to demo mode (pre-computed results + deterministic pipeline)
+when no GOOGLE_API_KEY is configured.
 """
 import json
+import logging
 import os
 import re
 from typing import Dict, Any, Optional
-from functools import lru_cache
 
 from . import config
 
-# ── Globals for lazy-loaded model ────────────────────────────
-_medgemma_model = None
-_medgemma_tokenizer = None
+logger = logging.getLogger(__name__)
+
+# ── Globals ──────────────────────────────────────────────────
+_client = None
 _load_error = None
+_api_available = False
+
+# Medical system prompt for clinical extraction tasks
+MEDICAL_SYSTEM_PROMPT = (
+    "You are MedGemma, a medical AI assistant specialised in community health "
+    "surveillance. You extract structured clinical data from community health "
+    "worker field notes. You are precise, evidence-based, and always ground "
+    "your outputs in the original note text. Respond only with valid JSON "
+    "when asked to produce structured output."
+)
 
 
-def _load_medgemma():
-    """Lazy-load the MedGemma model and tokenizer.
+def _resolve_api_key() -> Optional[str]:
+    """Resolve Google AI Studio API key from session, env, or Streamlit secrets."""
+    # 1. Check Streamlit session state (user-entered key)
+    try:
+        import streamlit as st
+        session_key = st.session_state.get("google_api_key", "")
+        if session_key and session_key.strip():
+            return session_key.strip()
+    except Exception:
+        pass
 
-    Uses 4-bit NF4 quantisation when USE_4BIT is set (HF Spaces / Kaggle).
-    Reads HF_TOKEN from config for gated model access.
-    """
-    global _medgemma_model, _medgemma_tokenizer, _load_error
-    if _medgemma_model is not None:
-        return _medgemma_model, _medgemma_tokenizer
+    # 2. Check environment variable
+    key = os.getenv("GOOGLE_API_KEY")
+    if key:
+        return key
 
-    import torch
+    # 3. Check Streamlit secrets
+    try:
+        import streamlit as st
+        key = st.secrets.get("GOOGLE_API_KEY")
+        if key:
+            return key
+    except Exception:
+        pass
 
-    # Check if GPU is available
-    if not torch.cuda.is_available():
-        _load_error = "No GPU available — running in offline mode"
+    return None
+
+
+def _get_client():
+    """Get or create the GenAI client (lazy singleton)."""
+    global _client, _load_error, _api_available
+
+    if _client is not None:
+        return _client
+
+    api_key = _resolve_api_key()
+    if not api_key:
+        _load_error = "No API key — running in demo mode"
+        _api_available = False
         raise RuntimeError(_load_error)
 
-    from transformers import AutoModelForImageTextToText, AutoProcessor
+    try:
+        from google import genai
+    except ImportError as e:
+        _load_error = "google-genai not installed — pip install google-genai"
+        raise RuntimeError(_load_error) from e
 
-    # Resolve HF token: env > config
-    hf_token = config.HF_TOKEN or os.getenv("HF_TOKEN")
-
-    # Try reading from Streamlit secrets if available
-    if not hf_token:
-        try:
-            import streamlit as st
-            hf_token = st.secrets.get("HF_TOKEN")
-        except Exception:
-            pass
-
-    if not hf_token:
-        _load_error = "HF_TOKEN not set — cannot access gated model"
-        raise RuntimeError(_load_error)
-
-    print(f"Loading MedGemma model: {config.MEDGEMMA_MODEL}")
-
-    # Processor
-    _medgemma_tokenizer = AutoProcessor.from_pretrained(
-        config.MEDGEMMA_MODEL,
-        token=hf_token,
-    )
-
-    # Model — bfloat16 (~8GB VRAM)
-    _medgemma_model = AutoModelForImageTextToText.from_pretrained(
-        config.MEDGEMMA_MODEL,
-        dtype=torch.bfloat16,
-        device_map=config.MEDGEMMA_DEVICE,
-        token=hf_token,
-    )
-    _medgemma_model.eval()
-    print(f"MedGemma loaded on {next(_medgemma_model.parameters()).device}")
-    return _medgemma_model, _medgemma_tokenizer
+    _client = genai.Client(api_key=api_key)
+    _api_available = True
+    logger.info("Google AI Studio client ready (model: %s)", config.GEMINI_MODEL)
+    return _client
 
 
 def is_model_available() -> bool:
-    """Check if MedGemma is loaded and ready for inference."""
-    return _medgemma_model is not None
+    """Check if Google AI API is configured and ready."""
+    return _api_available
 
 
 def get_load_error() -> Optional[str]:
@@ -83,66 +95,49 @@ def get_load_error() -> Optional[str]:
 
 
 def try_load_model() -> bool:
-    """Attempt to load MedGemma. Returns True if successful."""
+    """Validate that the Google AI API is reachable.
+
+    Returns True if the client was created successfully.
+    """
+    global _load_error, _api_available, _client
+    # Reset so we re-check (user may have entered a key)
+    _client = None
     try:
-        _load_medgemma()
+        _get_client()
+        _api_available = True
         return True
     except Exception as e:
-        global _load_error
         _load_error = str(e)
+        _api_available = False
         return False
 
 
 def generate_medgemma(prompt: str, max_tokens: int = None) -> str:
-    """Run MedGemma generation with a text prompt.
+    """Run generation via the Google AI Studio API.
 
-    Uses the chat template format via AutoProcessor for MedGemma.
+    Uses Gemma with a medical system prompt for clinical extraction tasks.
     """
-    import torch
-
-    model, tokenizer = _load_medgemma()
+    client = _get_client()
     max_tokens = max_tokens or config.REASONING_MAX_TOKENS
 
-    # Format as chat message
-    messages = [
-        {"role": "user", "content": [{"type": "text", "text": prompt}]},
-    ]
-
-    # MedGemma uses tokenizer.apply_chat_template which returns
-    # tokenized inputs directly
-    inputs = tokenizer.apply_chat_template(
-        messages,
-        add_generation_prompt=True,
-        tokenize=True,
-        return_dict=True,
-        return_tensors="pt",
-    ).to(model.device, dtype=torch.bfloat16)
-
-    input_len = inputs["input_ids"].shape[-1]
-
-    with torch.inference_mode():
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=max_tokens,
-            do_sample=False,
-        )
-
-    generated = tokenizer.decode(
-        outputs[0][input_len:], skip_special_tokens=True
+    response = client.models.generate_content(
+        model=config.GEMINI_MODEL,
+        contents=prompt,
+        config={
+            "system_instruction": MEDICAL_SYSTEM_PROMPT,
+            "max_output_tokens": max_tokens,
+            "temperature": config.TEMPERATURE,
+        },
     )
-    return generated.strip()
+
+    return response.text.strip()
 
 
 def parse_json_response(text: str) -> Optional[Dict[str, Any]]:
-    """Extract and parse JSON from a model response.
-
-    Handles cases where the model wraps JSON in markdown code fences,
-    adds preamble text, or produces truncated JSON.
-    """
+    """Extract and parse JSON from a model response."""
     if not text or not text.strip():
         return None
 
-    # Strip preamble before first { and trailing text after last }
     cleaned = text.strip()
     brace_idx = cleaned.find("{")
     if brace_idx > 0:
@@ -151,13 +146,11 @@ def parse_json_response(text: str) -> Optional[Dict[str, Any]]:
     if rbrace_idx >= 0 and rbrace_idx < len(cleaned) - 1:
         cleaned = cleaned[:rbrace_idx + 1]
 
-    # Try direct parse
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
         pass
 
-    # Try extracting from code fences
     match = re.search(r'```(?:json)?\s*\n(.*?)\n```', text, re.DOTALL)
     if match:
         try:
@@ -165,7 +158,6 @@ def parse_json_response(text: str) -> Optional[Dict[str, Any]]:
         except json.JSONDecodeError:
             pass
 
-    # Try finding first { ... } block
     match = re.search(r'\{.*\}', text, re.DOTALL)
     if match:
         try:
@@ -173,7 +165,6 @@ def parse_json_response(text: str) -> Optional[Dict[str, Any]]:
         except json.JSONDecodeError:
             pass
 
-    # Try fixing truncated JSON
     try:
         open_braces = cleaned.count("{") - cleaned.count("}")
         open_brackets = cleaned.count("[") - cleaned.count("]")

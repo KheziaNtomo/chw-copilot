@@ -594,15 +594,15 @@ FAILURE_MODE = {
 }
 
 # ── Surveillance Demo Data ───────────────────────────────────
-# 8 weeks of data (epi weeks 1–8, starting Mon 6 Jan 2025).
+# 12 weeks of data (epi weeks 1–12, starting Mon 6 Jan 2025).
 # Each row includes a "date" (ISO Monday of the epi week) for proper axis labels.
 DEMO_SURVEILLANCE = {
     "weekly_counts": [
         # Week 1 (Jan 6)
         {"week_id": 1, "date": "2025-01-06", "location_id": "loc_01", "syndrome_tag": "respiratory_fever", "count": 3},
-        {"week_id": 1, "date": "2025-01-06", "location_id": "loc_01", "syndrome_tag": "acute_watery_diarrhea", "count": 3},
+        {"week_id": 1, "date": "2025-01-06", "location_id": "loc_01", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
         {"week_id": 1, "date": "2025-01-06", "location_id": "loc_02", "syndrome_tag": "respiratory_fever", "count": 4},
-        {"week_id": 1, "date": "2025-01-06", "location_id": "loc_02", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 1, "date": "2025-01-06", "location_id": "loc_02", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
         {"week_id": 1, "date": "2025-01-06", "location_id": "loc_03", "syndrome_tag": "respiratory_fever", "count": 3},
         {"week_id": 1, "date": "2025-01-06", "location_id": "loc_03", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
         {"week_id": 1, "date": "2025-01-06", "location_id": "loc_04", "syndrome_tag": "respiratory_fever", "count": 2},
@@ -664,7 +664,7 @@ DEMO_SURVEILLANCE = {
         {"week_id": 6, "date": "2025-02-10", "location_id": "loc_04", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
         {"week_id": 6, "date": "2025-02-10", "location_id": "loc_05", "syndrome_tag": "respiratory_fever", "count": 3},
         {"week_id": 6, "date": "2025-02-10", "location_id": "loc_05", "syndrome_tag": "acute_watery_diarrhea", "count": 3},
-        # Week 7 (Feb 17) — OUTBREAK at Kibera (respiratory), uptick at Kayole (diarrhoea)
+        # Week 7 (Feb 17) -- OUTBREAK: Kibera respiratory, Kayole diarrhoea
         {"week_id": 7, "date": "2025-02-17", "location_id": "loc_01", "syndrome_tag": "respiratory_fever", "count": 18},
         {"week_id": 7, "date": "2025-02-17", "location_id": "loc_01", "syndrome_tag": "acute_watery_diarrhea", "count": 3},
         {"week_id": 7, "date": "2025-02-17", "location_id": "loc_02", "syndrome_tag": "respiratory_fever", "count": 5},
@@ -675,7 +675,7 @@ DEMO_SURVEILLANCE = {
         {"week_id": 7, "date": "2025-02-17", "location_id": "loc_04", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
         {"week_id": 7, "date": "2025-02-17", "location_id": "loc_05", "syndrome_tag": "respiratory_fever", "count": 2},
         {"week_id": 7, "date": "2025-02-17", "location_id": "loc_05", "syndrome_tag": "acute_watery_diarrhea", "count": 7},
-        # Week 8 (Feb 24) — current week
+        # Week 8 (Feb 24) -- Kibera still elevated, Kayole diarrhoea sustained
         {"week_id": 8, "date": "2025-02-24", "location_id": "loc_01", "syndrome_tag": "respiratory_fever", "count": 14},
         {"week_id": 8, "date": "2025-02-24", "location_id": "loc_01", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
         {"week_id": 8, "date": "2025-02-24", "location_id": "loc_02", "syndrome_tag": "respiratory_fever", "count": 4},
@@ -686,74 +686,94 @@ DEMO_SURVEILLANCE = {
         {"week_id": 8, "date": "2025-02-24", "location_id": "loc_04", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
         {"week_id": 8, "date": "2025-02-24", "location_id": "loc_05", "syndrome_tag": "respiratory_fever", "count": 3},
         {"week_id": 8, "date": "2025-02-24", "location_id": "loc_05", "syndrome_tag": "acute_watery_diarrhea", "count": 6},
+        # Week 9 (Mar 3) -- Kibera resolving, Kayole resolving
+        {"week_id": 9, "date": "2025-03-03", "location_id": "loc_01", "syndrome_tag": "respiratory_fever", "count": 10},
+        {"week_id": 9, "date": "2025-03-03", "location_id": "loc_01", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 9, "date": "2025-03-03", "location_id": "loc_02", "syndrome_tag": "respiratory_fever", "count": 3},
+        {"week_id": 9, "date": "2025-03-03", "location_id": "loc_02", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
+        {"week_id": 9, "date": "2025-03-03", "location_id": "loc_03", "syndrome_tag": "respiratory_fever", "count": 3},
+        {"week_id": 9, "date": "2025-03-03", "location_id": "loc_03", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 9, "date": "2025-03-03", "location_id": "loc_04", "syndrome_tag": "respiratory_fever", "count": 4},
+        {"week_id": 9, "date": "2025-03-03", "location_id": "loc_04", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 9, "date": "2025-03-03", "location_id": "loc_05", "syndrome_tag": "respiratory_fever", "count": 2},
+        {"week_id": 9, "date": "2025-03-03", "location_id": "loc_05", "syndrome_tag": "acute_watery_diarrhea", "count": 5},
+        # Week 10 (Mar 10) -- NEW: Dandora respiratory spike
+        {"week_id": 10, "date": "2025-03-10", "location_id": "loc_01", "syndrome_tag": "respiratory_fever", "count": 5},
+        {"week_id": 10, "date": "2025-03-10", "location_id": "loc_01", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
+        {"week_id": 10, "date": "2025-03-10", "location_id": "loc_02", "syndrome_tag": "respiratory_fever", "count": 4},
+        {"week_id": 10, "date": "2025-03-10", "location_id": "loc_02", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 10, "date": "2025-03-10", "location_id": "loc_03", "syndrome_tag": "respiratory_fever", "count": 12},
+        {"week_id": 10, "date": "2025-03-10", "location_id": "loc_03", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 10, "date": "2025-03-10", "location_id": "loc_04", "syndrome_tag": "respiratory_fever", "count": 3},
+        {"week_id": 10, "date": "2025-03-10", "location_id": "loc_04", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 10, "date": "2025-03-10", "location_id": "loc_05", "syndrome_tag": "respiratory_fever", "count": 3},
+        {"week_id": 10, "date": "2025-03-10", "location_id": "loc_05", "syndrome_tag": "acute_watery_diarrhea", "count": 3},
+        # Week 11 (Mar 17) -- Dandora respiratory elevated, NEW: Langata diarrhoea spike
+        {"week_id": 11, "date": "2025-03-17", "location_id": "loc_01", "syndrome_tag": "respiratory_fever", "count": 4},
+        {"week_id": 11, "date": "2025-03-17", "location_id": "loc_01", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 11, "date": "2025-03-17", "location_id": "loc_02", "syndrome_tag": "respiratory_fever", "count": 3},
+        {"week_id": 11, "date": "2025-03-17", "location_id": "loc_02", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
+        {"week_id": 11, "date": "2025-03-17", "location_id": "loc_03", "syndrome_tag": "respiratory_fever", "count": 9},
+        {"week_id": 11, "date": "2025-03-17", "location_id": "loc_03", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 11, "date": "2025-03-17", "location_id": "loc_04", "syndrome_tag": "respiratory_fever", "count": 3},
+        {"week_id": 11, "date": "2025-03-17", "location_id": "loc_04", "syndrome_tag": "acute_watery_diarrhea", "count": 8},
+        {"week_id": 11, "date": "2025-03-17", "location_id": "loc_05", "syndrome_tag": "respiratory_fever", "count": 2},
+        {"week_id": 11, "date": "2025-03-17", "location_id": "loc_05", "syndrome_tag": "acute_watery_diarrhea", "count": 3},
+        # Week 12 (Mar 24) -- current week: Langata diarrhoea worsening
+        {"week_id": 12, "date": "2025-03-24", "location_id": "loc_01", "syndrome_tag": "respiratory_fever", "count": 4},
+        {"week_id": 12, "date": "2025-03-24", "location_id": "loc_01", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 12, "date": "2025-03-24", "location_id": "loc_02", "syndrome_tag": "respiratory_fever", "count": 3},
+        {"week_id": 12, "date": "2025-03-24", "location_id": "loc_02", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
+        {"week_id": 12, "date": "2025-03-24", "location_id": "loc_03", "syndrome_tag": "respiratory_fever", "count": 5},
+        {"week_id": 12, "date": "2025-03-24", "location_id": "loc_03", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 12, "date": "2025-03-24", "location_id": "loc_04", "syndrome_tag": "respiratory_fever", "count": 3},
+        {"week_id": 12, "date": "2025-03-24", "location_id": "loc_04", "syndrome_tag": "acute_watery_diarrhea", "count": 10},
+        {"week_id": 12, "date": "2025-03-24", "location_id": "loc_05", "syndrome_tag": "respiratory_fever", "count": 2},
+        {"week_id": 12, "date": "2025-03-24", "location_id": "loc_05", "syndrome_tag": "acute_watery_diarrhea", "count": 4},
     ],
     "anomalies": [
-        {
-            "location_id": "loc_01",
-            "syndrome_tag": "respiratory_fever",
-            "week_id": 7,
-            "current_count": 18,
-            "baseline_mean": 4.2,
-            "ratio": 4.3,
-            "alert": True,
-            "message": "Respiratory fever cases at Kibera Health Post are 4.3× above baseline (18 vs mean 4.2)",
-        },
-        {
-            "location_id": "loc_01",
-            "syndrome_tag": "respiratory_fever",
-            "week_id": 8,
-            "current_count": 14,
-            "baseline_mean": 4.2,
-            "ratio": 3.3,
-            "alert": True,
-            "message": "Respiratory fever at Kibera Health Post remains elevated (14 cases, 3.3× baseline)",
-        },
+        {"location_id": "loc_01", "syndrome_tag": "respiratory_fever", "week_id": 7,
+         "current_count": 18, "baseline_mean": 4.2, "ratio": 4.3, "alert": True,
+         "message": "Respiratory fever at Kibera 4.3x above baseline (18 vs mean 4.2)"},
+        {"location_id": "loc_01", "syndrome_tag": "respiratory_fever", "week_id": 8,
+         "current_count": 14, "baseline_mean": 4.2, "ratio": 3.3, "alert": True,
+         "message": "Respiratory fever at Kibera remains elevated (14 cases, 3.3x baseline)"},
+        {"location_id": "loc_05", "syndrome_tag": "acute_watery_diarrhea", "week_id": 7,
+         "current_count": 7, "baseline_mean": 3.0, "ratio": 2.3, "alert": True,
+         "message": "AWD at Kayole 2.3x above baseline (7 vs mean 3.0)"},
+        {"location_id": "loc_03", "syndrome_tag": "respiratory_fever", "week_id": 10,
+         "current_count": 12, "baseline_mean": 2.5, "ratio": 4.8, "alert": True,
+         "message": "Respiratory fever at Dandora 4.8x above baseline (12 vs mean 2.5)"},
+        {"location_id": "loc_04", "syndrome_tag": "acute_watery_diarrhea", "week_id": 11,
+         "current_count": 8, "baseline_mean": 1.3, "ratio": 6.2, "alert": True,
+         "message": "AWD at Langata 6.2x above baseline (8 vs mean 1.3)"},
+        {"location_id": "loc_04", "syndrome_tag": "acute_watery_diarrhea", "week_id": 12,
+         "current_count": 10, "baseline_mean": 1.3, "ratio": 7.7, "alert": True,
+         "message": "AWD at Langata worsening -- 10 cases in W12 (7.7x baseline)"},
     ],
     "sitrep": {
-        "week_id": 8,
+        "week_id": 12,
         "generated_by": "template",
         "narrative": (
-            "WEEK 8 SITUATION REPORT — CHW Copilot Syndromic Surveillance\n\n"
-
-            "ALERT: Respiratory fever syndrome at Kibera Health Post remains critically elevated for a "
-            "second consecutive week. Week 7 saw a peak of 18 cases (4.3× above the 6-week baseline mean "
-            "of 4.2). Week 8 reporting so far shows 14 cases (3.3× baseline), suggesting the outbreak "
-            "may be plateauing but has not resolved.\n\n"
-
-            "WHAT THIS SYNDROME COVERS: Respiratory fever syndrome is a syndromic grouping — "
-            "it does not represent a single diagnosis. Conditions commonly presenting under this label include:\n"
-            "  · Malaria: fever, chills, and rigors without prominent cough; highly likely in rainy season\n"
-            "  · Pneumonia (bacterial/viral): fever with cough and fast or difficult breathing\n"
-            "  · Influenza-like illness (ILI): fever, body aches, cough, often with cluster spread\n"
-            "  · Upper respiratory tract infection (URTI): fever with sore throat or runny nose, milder course\n"
-            "  · Pulmonary tuberculosis (TB): chronic cough >2 weeks, weight loss, night sweats\n\n"
-
-            "RECOMMENDED ACTIONS:\n"
-            "  1. Deploy additional CHWs to Kibera Health Post for active case finding\n"
-            "  2. Conduct malaria RDT testing for all fever presentations in this catchment\n"
-            "  3. Ensure adequate stock of ACT, amoxicillin, and ORS at health post\n"
-            "  4. Screen for chest indrawing and fast breathing in all paediatric cases\n"
-            "  5. Monitor Mathare Community Center for spillover — week 7 showed slight uptick (5 vs 3 avg)\n\n"
-
-            "Acute watery diarrhea (AWD) remains within expected baseline across all reporting locations. "
-            "AWD covers presentations consistent with cholera, rotavirus, food-borne illness, and "
-            "Enterotoxigenic E. coli (ETEC) — community water source monitoring is advised during rainy season.\n\n"
-
-            "Data source: CHW Copilot syndromic surveillance network · 5 locations · 8 weeks of data"
+            "WEEK 12 SITUATION REPORT -- CHW Copilot Syndromic Surveillance\n\n"
+            "ACTIVE ALERTS:\n"
+            "  1. LANGATA: Acute watery diarrhoea (AWD) surge -- 10 cases in W12 (7.7x baseline). "
+            "Second consecutive week of escalation. Investigate water sources immediately.\n"
+            "  2. DANDORA: Respiratory fever cluster resolving -- 12 in W10, down to 5 in W12. "
+            "Continue monitoring.\n"
+            "  3. KIBERA: Respiratory fever resolved -- peaked at 18 in W7, now at baseline (4 in W12).\n"
+            "  4. KAYOLE: AWD resolved -- peaked at 7 in W7, now at baseline (4 in W12).\n\n"
+            "Data source: CHW Copilot syndromic surveillance network -- 5 locations -- 12 weeks of data"
         ),
         "alerts": [
-            {
-                "severity": "high",
-                "location": "loc_01",
-                "syndrome": "respiratory_fever",
-                "message": "18 cases in W7 (4.3x baseline), 14 in W8 -- investigate immediately",
-            },
-            {
-                "severity": "medium",
-                "location": "loc_05",
-                "syndrome": "acute_watery_diarrhea",
-                "message": "7 cases in W7 (2.3x baseline) -- monitor water sources",
-            }
+            {"severity": "critical", "location": "loc_04", "syndrome": "acute_watery_diarrhea",
+             "message": "10 cases in W12 (7.7x baseline) -- worsening trend, investigate water sources"},
+            {"severity": "high", "location": "loc_03", "syndrome": "respiratory_fever",
+             "message": "12 cases in W10 (4.8x baseline), resolving to 5 in W12 -- continue monitoring"},
+            {"severity": "medium", "location": "loc_01", "syndrome": "respiratory_fever",
+             "message": "Resolved: peaked at 18 in W7, now at baseline (4 in W12)"},
+            {"severity": "medium", "location": "loc_05", "syndrome": "acute_watery_diarrhea",
+             "message": "Resolved: peaked at 7 in W7, now at baseline (4 in W12)"},
         ],
     },
 }

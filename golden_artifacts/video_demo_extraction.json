@@ -1,0 +1,59 @@
+{
+  "encounter_id": "enc_2026_w07_003",
+  "patient": {
+    "age_years": 0,
+    "age_months": 11,
+    "sex": "male"
+  },
+  "symptoms": {
+    "fever": {
+      "value": "yes",
+      "evidence_quote": "hot body 3 days"
+    },
+    "cough": {
+      "value": "yes",
+      "evidence_quote": "coughing badly"
+    },
+    "difficulty_breathing": {
+      "value": "yes",
+      "evidence_quote": "pulling in of chest when breathing"
+    },
+    "watery_diarrhea": {
+      "value": "no",
+      "evidence_quote": ""
+    },
+    "vomiting": {
+      "value": "no",
+      "evidence_quote": ""
+    },
+    "rash": {
+      "value": "no",
+      "evidence_quote": ""
+    }
+  },
+  "other_symptoms": [
+    {
+      "name": "not eating",
+      "evidence_quote": "refusing food since yesterday"
+    }
+  ],
+  "onset_days": 3,
+  "severity": "severe",
+  "red_flags": [
+    "chest indrawing",
+    "refusing food",
+    "fever >3 days in infant"
+  ],
+  "treatments_given": [
+    "paracetamol"
+  ],
+  "referral": true,
+  "syndrome_tag": "respiratory_fever",
+  "sub_syndrome": "pneumonia-like",
+  "confidence": "high",
+  "recommendations": [
+    "🚨 REFER IMMEDIATELY — danger sign(s): chest indrawing",
+    "🌡️ Give paracetamol for fever; do malaria RDT if available",
+    "💊 Likely pneumonia in child <5 — give oral amoxicillin, refer if no improvement in 48h"
+  ]
+}

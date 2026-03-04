@@ -41,6 +41,9 @@ medgemma_chw_lora/
 *.bin
 *.safetensors
 
+# Streamlit secrets and config (contains API keys)
+.streamlit/
+
 # IDE / OS
 .vscode/
 .idea/
