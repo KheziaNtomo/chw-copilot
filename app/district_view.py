@@ -36,8 +36,24 @@ SYNDROME_COLORS = {
     "unclear":               "#9a9a88",
 }
 
-# Line dash patterns for distinguishing locations
-LOCATION_DASHES = ["solid", "dash", "dot", "dashdot", "longdash"]
+# Consistent location colour palette
+LOCATION_COLORS = [
+    "#e07b54",  # burnt orange
+    "#4a6032",  # olive
+    "#2e7d8a",  # teal
+    "#8a5a8a",  # muted purple
+    "#b5770d",  # amber
+    "#6b8e3d",  # lime
+    "#c0392b",  # red
+]
+
+# Line dash patterns for distinguishing syndromes
+SYNDROME_DASHES = {
+    "respiratory_fever":     "solid",
+    "acute_watery_diarrhea": "dash",
+    "other":                 "dot",
+    "unclear":               "dashdot",
+}
 
 
 def _detect_anomalies(weekly_df, baseline_weeks=4, threshold=2.0):
@@ -114,7 +130,11 @@ def render_district_view():
     latest_week  = int(weekly_data["week_id"].max())
     latest       = weekly_data[weekly_data["week_id"] == latest_week]
     total_cases  = int(latest["count"].sum())
-    num_anomalies = len(surv["anomalies"])
+    # Dynamic anomaly detection
+    detected_anomalies = _detect_anomalies(weekly_data)
+    loc_id_to_name = {k: v.get("name", k) for k, v in DEMO_LOCATIONS.items()}
+    alert_loc_ids = set(loc_id for _, loc_id, _ in detected_anomalies)
+    num_anomalies = len(detected_anomalies)
     num_locations = latest["location_id"].nunique()
     weeks_tracked = weekly_data["week_id"].nunique()
 
@@ -192,10 +212,8 @@ def render_district_view():
     )
 
     if PLOTLY_AVAILABLE and DEMO_LOCATIONS:
-        # Determine which locations have anomalies
-        alert_locations = set()
-        for anomaly in surv["anomalies"]:
-            alert_locations.add(anomaly["location_id"])
+        # Use dynamic anomaly detection for map
+        alert_locations = alert_loc_ids
 
         # Build map data
         map_lats, map_lons, map_names, map_colors, map_sizes, map_hover = [], [], [], [], [], []
@@ -269,6 +287,9 @@ def render_district_view():
     )
 
     if PLOTLY_AVAILABLE:
+        # ── Assign consistent colours to locations ──
+        all_locations = sorted(weekly_data["location_name"].unique())
+        loc_color_map = {loc: LOCATION_COLORS[i % len(LOCATION_COLORS)] for i, loc in enumerate(all_locations)}
         # ── Filter controls: Date range + Syndrome + Location ──
         filter_row1, filter_row2, filter_row3 = st.columns([2, 2, 2])
 
@@ -297,76 +318,114 @@ def render_district_view():
                 if st.checkbox(label, value=True, key=f"syn_{syn}"):
                     selected_syndromes.append(syn)
 
-        all_locations = sorted(weekly_data["location_name"].unique())
         with filter_row3:
+            loc_options = ["Overall"] + all_locations
             selected_locations = st.multiselect(
                 "Locations",
-                options=all_locations,
-                default=all_locations,
+                options=loc_options,
+                default=["Overall"],
                 key="loc_select",
             )
 
-        # Apply filters
+        # Resolve "Overall" vs individual locations
         active_syns = selected_syndromes if selected_syndromes else all_syndromes
-        active_locs = selected_locations if selected_locations else all_locations
+        use_overall = "Overall" in selected_locations
+        individual_locs = [l for l in selected_locations if l != "Overall"]
+
+        # Filter by date + syndrome
         chart_data = weekly_data[
             (weekly_data["week_id"] >= week_range[0]) &
             (weekly_data["week_id"] <= week_range[1]) &
-            (weekly_data["syndrome_tag"].isin(active_syns)) &
-            (weekly_data["location_name"].isin(active_locs))
+            (weekly_data["syndrome_tag"].isin(active_syns))
         ]
 
-        # ── Dynamic anomaly detection ──
-        detected = _detect_anomalies(weekly_data)
-        # Build lookup: set of (week_id, location_name, syndrome_tag)
-        loc_id_to_name = {k: v.get("name", k) for k, v in DEMO_LOCATIONS.items()}
+        # Dynamic anomaly detection (filtered)
         anomaly_set = set()  # (week_id, location_name, syndrome_tag)
-        for wid, loc_id, syn in detected:
-            loc_name = loc_id_to_name.get(loc_id, loc_id)
-            if loc_name in active_locs and syn in active_syns:
-                anomaly_set.add((wid, loc_name, syn))
-        anomaly_week_ids = set(wid for wid, _, _ in anomaly_set)
+        for wid, loc_id, syn in detected_anomalies:
+            ln = loc_id_to_name.get(loc_id, loc_id)
+            if syn in active_syns:
+                anomaly_set.add((wid, ln, syn))
+        anomaly_week_ids = set()
 
         # Build week_id → week_label mapping
         wid_to_label = dict(zip(chart_data["week_id"], chart_data["week_label"]))
 
         fig = go.Figure()
+        legend_shown = set()  # track which syndrome legends already shown
 
-        # Create one trace per (location, syndrome) — each location gets its own line
-        loc_dash_map = {loc: LOCATION_DASHES[i % len(LOCATION_DASHES)] for i, loc in enumerate(sorted(active_locs))}
-        show_loc_in_name = len(active_locs) > 1
+        # ── "Overall" line: sum across all locations ──
+        if use_overall:
+            overall_data = (
+                chart_data
+                .groupby(["week_id", "week_label", "syndrome_tag"])["count"]
+                .sum()
+                .reset_index()
+                .sort_values("week_id")
+            )
+            for syndrome_tag in sorted(overall_data["syndrome_tag"].unique()):
+                grp = overall_data[overall_data["syndrome_tag"] == syndrome_tag]
+                syn_label = SYNDROME_DISPLAY.get(syndrome_tag, syndrome_tag)
+                dash = SYNDROME_DASHES.get(syndrome_tag, "solid")
+                show_legend = syndrome_tag not in legend_shown
+                legend_shown.add(syndrome_tag)
 
-        for loc_name in sorted(active_locs):
+                # Check if any location has anomaly this week for this syndrome
+                m_colors, m_sizes = [], []
+                for _, row in grp.iterrows():
+                    wid = int(row["week_id"])
+                    has_anom = any((wid, ln, syndrome_tag) in anomaly_set for ln in all_locations)
+                    m_colors.append("#c0392b" if has_anom else "#444")
+                    m_sizes.append(10 if has_anom else 6)
+                    if has_anom:
+                        anomaly_week_ids.add(wid)
+
+                fig.add_trace(go.Scatter(
+                    x=grp["week_label"], y=grp["count"],
+                    mode="lines+markers",
+                    name=syn_label,
+                    legendgroup=syndrome_tag,
+                    showlegend=show_legend,
+                    line=dict(color="#444", width=3, dash=dash),
+                    marker=dict(size=m_sizes, color=m_colors,
+                                line=dict(color="white", width=1)),
+                    hovertemplate=f"<b>Overall — {syn_label}</b><br>%{{x}} : %{{y}} cases<extra></extra>",
+                ))
+
+        # ── Per-location lines: colour = location, dash = syndrome ──
+        for loc_name in sorted(individual_locs):
             loc_data = chart_data[chart_data["location_name"] == loc_name]
+            color = loc_color_map.get(loc_name, "#888")
             for syndrome_tag in sorted(loc_data["syndrome_tag"].unique()):
                 grp = loc_data[loc_data["syndrome_tag"] == syndrome_tag]
                 grp = grp.groupby(["week_id", "week_label"])["count"].sum().reset_index().sort_values("week_id")
 
-                color = SYNDROME_COLORS.get(syndrome_tag, "#888")
                 syn_label = SYNDROME_DISPLAY.get(syndrome_tag, syndrome_tag)
-                trace_name = f"{loc_name} — {syn_label}" if show_loc_in_name else syn_label
-                dash = loc_dash_map.get(loc_name, "solid")
+                dash = SYNDROME_DASHES.get(syndrome_tag, "solid")
+                show_legend = syndrome_tag not in legend_shown
+                legend_shown.add(syndrome_tag)
 
-                # Mark anomaly points
-                marker_colors = []
-                marker_sizes = []
+                m_colors, m_sizes = [], []
                 for _, row in grp.iterrows():
-                    is_anom = (int(row["week_id"]), loc_name, syndrome_tag) in anomaly_set
-                    marker_colors.append("#c0392b" if is_anom else color)
-                    marker_sizes.append(11 if is_anom else 6)
+                    wid = int(row["week_id"])
+                    is_anom = (wid, loc_name, syndrome_tag) in anomaly_set
+                    m_colors.append("#c0392b" if is_anom else color)
+                    m_sizes.append(11 if is_anom else 6)
+                    if is_anom:
+                        anomaly_week_ids.add(wid)
 
                 fig.add_trace(go.Scatter(
-                    x=grp["week_label"],
-                    y=grp["count"],
+                    x=grp["week_label"], y=grp["count"],
                     mode="lines+markers",
-                    name=trace_name,
+                    name=syn_label,
+                    legendgroup=syndrome_tag,
+                    showlegend=show_legend,
                     line=dict(color=color, width=2.5, dash=dash),
-                    marker=dict(size=marker_sizes, color=marker_colors,
+                    marker=dict(size=m_sizes, color=m_colors,
                                 line=dict(color="white", width=1)),
-                    hovertemplate=f"<b>{trace_name}</b><br>%{{x}} : %{{y}} cases<extra></extra>",
+                    hovertemplate=f"<b>{loc_name} — {syn_label}</b><br>%{{x}} : %{{y}} cases<extra></extra>",
                 ))
 
-        # Red shaded regions for anomaly weeks
+        # Anomaly week shading
         all_chart_labels = sorted(
             chart_data["week_label"].unique(),
             key=lambda x: int(x.split("\u00b7")[0].strip()[1:]) if "\u00b7" in x else int(x.split("·")[0].strip()[1:])
@@ -404,8 +463,8 @@ def render_district_view():
                 bordercolor="#dde5d4",
                 borderwidth=1,
                 orientation="h",
-                y=-0.25,
-                font=dict(size=10),
+                y=-0.2,
+                font=dict(size=11),
             ),
             margin=dict(l=10, r=10, t=10, b=40),
             height=380,
