@@ -516,7 +516,7 @@ DEMO_RESULTS = [
             "Monitor for signs of severe malaria: convulsions, severe anaemia, jaundice",
         ],
         "checklist": [
-            "What is the gestational age? (Treatment dosing varies by trimester per WHO guidelines)",
+            "Gestational age is 26 weeks (2nd trimester) — confirm ACT dosing appropriate for this trimester per WHO guidelines",
             "Has the patient been taking IPTp-SP? (Intermittent preventive treatment in pregnancy)",
             "Any vaginal bleeding or abdominal pain? (Malaria increases miscarriage/preterm risk)",
             "Check haemoglobin if possible — severe anaemia in pregnancy is a danger sign",

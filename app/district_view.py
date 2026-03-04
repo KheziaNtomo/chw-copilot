@@ -302,7 +302,14 @@ def render_district_view():
 
         # Build week_id → week_label mapping for anomaly shading
         wid_to_label = dict(zip(agg["week_id"], agg["week_label"]))
-        anomaly_week_ids = set(a["week_id"] for a in surv["anomalies"])
+        # Filter anomalies to match current syndrome + location selections
+        active_syn = set(selected_syndromes if selected_syndromes else all_syndromes)
+        loc_name_to_id = {v.get("name", k): k for k, v in DEMO_LOCATIONS.items()}
+        active_loc_ids = set(loc_name_to_id.get(n, n) for n in (selected_locations if selected_locations else all_locations))
+        anomaly_week_ids = set(
+            a["week_id"] for a in surv["anomalies"]
+            if a.get("syndrome_tag") in active_syn and a.get("location_id") in active_loc_ids
+        )
 
         fig = go.Figure()
         for syndrome_tag in agg["syndrome_tag"].unique():
