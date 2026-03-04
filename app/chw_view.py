@@ -433,7 +433,7 @@ def render_chw_view():
 
         st.markdown(
             f'<div {card_top}>'
-            f'<div {card_header} style="padding:0.5rem 0.75rem;font-size:0.65rem;text-transform:uppercase;'
+            f'<div style="padding:0.5rem 0.75rem;font-size:0.65rem;text-transform:uppercase;'
             f'letter-spacing:0.1em;font-weight:700;background:rgba(46,125,50,0.10);color:#2e7d32;'
             f'border-bottom:2px solid #2e7d32;">Symptoms Extracted ({len(symptoms_yes)})</div>'
             f'<div {card_body}>{items_html}</div>'
