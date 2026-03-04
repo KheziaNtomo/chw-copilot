@@ -10,6 +10,18 @@ try:
 except ImportError:
     PLOTLY_AVAILABLE = False
 
+
+def _recommend(alert):
+    """Map syndrome to actionable recommendation for district leads."""
+    syn = alert.get("syndrome", "")
+    recs = {
+        "respiratory_fever": "Verify cases; check ILI sample collection",
+        "acute_watery_diarrhea": "Activate WASH response; collect stool samples",
+        "other": "Review case definitions; investigate cluster",
+        "unclear": "Clarify presentations; consider enhanced triage",
+    }
+    return recs.get(syn, "Investigate and verify counts")
+
 SYNDROME_DISPLAY = {
     "respiratory_fever":   "Respiratory Fever Syndrome",
     "acute_watery_diarrhea": "Acute Watery Diarrhea",
@@ -100,33 +112,46 @@ def render_district_view():
 
     st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
 
-    # ── Anomaly Alerts ───────────────────────────────────────────
-    if surv["anomalies"]:
-        st.markdown(
-            '<p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;'
-            'font-weight:700;color:#8a9a7a;margin-bottom:0.5rem;">Active Alerts</p>',
-            unsafe_allow_html=True,
-        )
-        for anomaly in surv["anomalies"]:
-            loc_name = DEMO_LOCATIONS.get(anomaly["location_id"], {}).get("name", anomaly["location_id"])
-            syn_name = SYNDROME_DISPLAY.get(anomaly["syndrome_tag"], anomaly["syndrome_tag"])
+    # -- Situation Report Table (top of dashboard) --
+    sitrep = surv["sitrep"]
+    if sitrep.get("alerts"):
+        with st.expander(f"Situation Report ({len(sitrep['alerts'])} alerts)", expanded=True):
+            sev_colors = {"critical": "#a11", "high": "#c0392b", "medium": "#b5770d", "low": "#8D957E"}
+            rows_html = ""
+            for alert in sitrep["alerts"]:
+                sev = alert["severity"]
+                sev_c = sev_colors.get(sev, "#788990")
+                loc = DEMO_LOCATIONS.get(alert["location"], {}).get("name", alert["location"])
+                syn = SYNDROME_DISPLAY.get(alert["syndrome"], alert["syndrome"])
+                msg = alert.get("message", "")
+                rec = alert.get("action", _recommend(alert))
+                rows_html += (
+                    f'<tr>'
+                    f'<td style="color:{sev_c};font-weight:700;text-transform:uppercase;'
+                    f'font-size:0.7rem;letter-spacing:0.05em;white-space:nowrap;">{sev}</td>'
+                    f'<td style="font-weight:600;color:#1a1510;">{loc}</td>'
+                    f'<td style="color:#3a3225;">{syn}</td>'
+                    f'<td style="color:#6a6255;font-size:0.85rem;">{msg}</td>'
+                    f'<td style="color:#3a3225;font-size:0.85rem;">{rec}</td>'
+                    f'</tr>'
+                )
+            th_style = ('text-align:left;padding:0.5rem 0.8rem;color:#6a6255;'
+                       'font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;font-weight:600;')
             st.markdown(
-                f'<div class="anomaly-card">'
-                f'<div style="display:flex;justify-content:space-between;align-items:flex-start;">'
-                f'<div>'
-                f'<div class="metric">{anomaly["current_count"]}</div>'
-                f'<div style="font-weight:600;color:#1a2214;margin-top:0.25rem;">{syn_name}</div>'
-                f'<div style="font-size:0.85rem;color:#8a9a7a;margin-top:0.15rem;">{loc_name}</div>'
-                f'</div>'
-                f'<div style="text-align:right;padding-top:0.25rem;">'
-                f'<div style="font-size:1.8rem;font-weight:300;color:#c0392b;letter-spacing:-0.02em;">'
-                f'{anomaly["ratio"]:.1f}×</div>'
-                f'<div style="font-size:0.75rem;color:#8a9a7a;">above baseline ({anomaly["baseline_mean"]:.1f} avg)</div>'
-                f'</div>'
-                f'</div>'
-                f'<div style="margin-top:0.6rem;font-size:0.88rem;color:#4a3030;border-top:1px solid rgba(192,57,43,0.15);padding-top:0.5rem;">'
-                f'{anomaly["message"]}</div>'
-                f'</div>',
+                f'<table style="width:100%;border-collapse:collapse;font-size:0.88rem;">'
+                f'<thead><tr style="border-bottom:1px solid rgba(227,214,197,0.2);">'
+                f'<th style="{th_style}">Alert</th>'
+                f'<th style="{th_style}">Location</th>'
+                f'<th style="{th_style}">Syndrome</th>'
+                f'<th style="{th_style}">Trigger</th>'
+                f'<th style="{th_style}">Recommendation</th>'
+                f'</tr></thead>'
+                f'<tbody>{rows_html}</tbody>'
+                f'</table>'
+                f'<style>'
+                f'table tbody tr {{ border-bottom: 1px solid rgba(227,214,197,0.1); }}'
+                f'table td {{ padding: 0.6rem 0.8rem; }}'
+                f'</style>',
                 unsafe_allow_html=True,
             )
 
@@ -134,27 +159,30 @@ def render_district_view():
     st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
     st.markdown(
         '<p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;'
-        'font-weight:700;color:#8a9a7a;margin-bottom:0.5rem;">Weekly Syndrome Trends</p>',
+        'font-weight:700;color:#8D957E;margin-bottom:0.5rem;">Weekly Syndrome Trends</p>',
         unsafe_allow_html=True,
     )
 
     if PLOTLY_AVAILABLE:
-        # Location selector
+        # Location selector (checkbox-based)
         all_locations = sorted(weekly_data["location_name"].unique())
-        location_options = ["All Locations"] + all_locations
-        selected_location = st.radio(
-            "Filter by location",
-            location_options,
-            horizontal=True,
-            key="location_filter",
-            label_visibility="collapsed",
-        )
+        filter_col1, filter_col2 = st.columns([1, 3])
+        with filter_col1:
+            use_all = st.checkbox("All Locations", value=True, key="loc_all")
+            if use_all:
+                selected_locations = all_locations
+            else:
+                selected_locations = []
+                for loc in all_locations:
+                    if st.checkbox(loc, value=True, key=f"loc_{loc}"):
+                        selected_locations.append(loc)
+                st.markdown(
+                    f'<span style="font-size:0.7rem;color:#8D957E;">{len(selected_locations)} of {len(all_locations)} selected</span>',
+                    unsafe_allow_html=True,
+                )
 
-        # Filter data if specific location selected
-        if selected_location != "All Locations":
-            chart_data = weekly_data[weekly_data["location_name"] == selected_location]
-        else:
-            chart_data = weekly_data
+        # Filter data
+        chart_data = weekly_data[weekly_data["location_name"].isin(selected_locations)] if selected_locations else weekly_data
 
         # Aggregate (sum across locations if "All", or just the one location)
         agg = (
@@ -328,99 +356,6 @@ def render_district_view():
             unsafe_allow_html=True,
         )
 
-    # ── SITREP ───────────────────────────────────────────────────
-    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
-    st.markdown(
-        '<p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;'
-        'font-weight:700;color:#8a9a7a;margin-bottom:0.5rem;">Weekly Situation Report</p>',
-        unsafe_allow_html=True,
-    )
-
-    sitrep = surv["sitrep"]
-    narrative = sitrep["narrative"]
-
-    # Parse narrative into styled sections
-    sections = narrative.split("\n\n")
-    for section in sections:
-        section = section.strip()
-        if not section:
-            continue
-
-        # Header line
-        if section.startswith("WEEK") or section.startswith("week"):
-            st.markdown(
-                f'<div style="background:#1e2a1e;color:#fff;padding:0.8rem 1.2rem;'
-                f'border-radius:8px;font-size:0.85rem;font-weight:600;letter-spacing:0.04em;'
-                f'margin-bottom:0.75rem;">{section}</div>',
-                unsafe_allow_html=True,
-            )
-        # Alert section
-        elif section.startswith("ALERT"):
-            st.markdown(
-                f'<div style="background:rgba(192,57,43,0.06);border:1px solid rgba(192,57,43,0.15);'
-                f'border-left:4px solid #c0392b;padding:0.8rem 1.2rem;border-radius:0 8px 8px 0;'
-                f'font-size:0.9rem;line-height:1.7;color:#4a2020;margin-bottom:0.75rem;">'
-                f'{section.replace(chr(10), "<br>")}</div>',
-                unsafe_allow_html=True,
-            )
-        # Syndrome explanation
-        elif "SYNDROME COVERS" in section or "WHAT THIS" in section:
-            st.markdown(
-                f'<div style="background:#f5f7f2;border:1px solid #dde5d4;'
-                f'border-left:4px solid #4a6032;padding:0.8rem 1.2rem;border-radius:0 8px 8px 0;'
-                f'font-size:0.88rem;line-height:1.8;color:#2d3d1f;margin-bottom:0.75rem;">'
-                f'{section.replace(chr(10), "<br>")}</div>',
-                unsafe_allow_html=True,
-            )
-        # Recommended actions
-        elif "RECOMMENDED" in section or "ACTIONS" in section:
-            st.markdown(
-                f'<div style="background:rgba(74,96,50,0.05);border:1px solid #dde5d4;'
-                f'border-left:4px solid #7a9e5a;padding:0.8rem 1.2rem;border-radius:0 8px 8px 0;'
-                f'font-size:0.88rem;line-height:1.8;color:#2d3d1f;margin-bottom:0.75rem;">'
-                f'{section.replace(chr(10), "<br>")}</div>',
-                unsafe_allow_html=True,
-            )
-        # Data source / footer
-        elif section.startswith("Data source"):
-            st.markdown(
-                f'<div style="font-size:0.75rem;color:#8a9a7a;padding:0.4rem 0;'
-                f'border-top:1px solid #dde5d4;margin-top:0.5rem;">{section}</div>',
-                unsafe_allow_html=True,
-            )
-        # Everything else
-        else:
-            st.markdown(
-                f'<div style="background:#fff;border:1px solid #dde5d4;'
-                f'padding:0.8rem 1.2rem;border-radius:8px;'
-                f'font-size:0.88rem;line-height:1.8;color:#2d3d1f;margin-bottom:0.75rem;">'
-                f'{section.replace(chr(10), "<br>")}</div>',
-                unsafe_allow_html=True,
-            )
-
-    if sitrep.get("alerts"):
-        st.markdown(
-            '<p style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;'
-            'font-weight:700;color:#8a9a7a;margin:0.75rem 0 0.4rem 0;">Structured Alerts</p>',
-            unsafe_allow_html=True,
-        )
-        for alert in sitrep["alerts"]:
-            sev_color = {"high": "#c0392b", "medium": "#b5770d", "low": "#2e7d32"}.get(alert["severity"], "#888")
-            loc_name = DEMO_LOCATIONS.get(alert["location"], {}).get("name", alert["location"])
-            syn_name = SYNDROME_DISPLAY.get(alert["syndrome"], alert["syndrome"])
-            st.markdown(
-                f'<div style="display:flex;align-items:center;gap:1rem;padding:0.6rem 1rem;'
-                f'background:#fff;border:1px solid #dde5d4;border-left:4px solid {sev_color};'
-                f'border-radius:0 8px 8px 0;margin:0.4rem 0;">'
-                f'<span style="color:{sev_color};font-weight:700;font-size:0.7rem;'
-                f'text-transform:uppercase;letter-spacing:0.08em;min-width:4rem;">{alert["severity"]}</span>'
-                f'<span style="color:#1a2214;font-weight:600;">{loc_name}</span>'
-                f'<span style="color:#8a9a7a;">·</span>'
-                f'<span style="color:#4a5a3a;">{syn_name}</span>'
-                f'<span style="color:#8a9a7a;margin-left:auto;font-size:0.85rem;">{alert["message"]}</span>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
 
 
     # ── Export ───────────────────────────────────────────────────

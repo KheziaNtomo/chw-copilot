@@ -127,8 +127,8 @@ DEMO_RESULTS = [
             "trigger_quotes": ["fever", "cough bad"],
         },
         "recommendations": [
-            "🌡️ Give paracetamol for fever; do malaria RDT if available",
-            "📋 No urgent action needed — routine follow-up",
+            " Give paracetamol for fever; do malaria RDT if available",
+            " No urgent action needed — routine follow-up",
         ],
         "checklist": [
             "Is the child able to drink or breastfeed? (WHO danger sign if unable)",
@@ -180,9 +180,9 @@ DEMO_RESULTS = [
             "trigger_quotes": ["watery diarrhea 2 days", "vomiting", "sunken eyes"],
         },
         "recommendations": [
-            "🚨 REFER IMMEDIATELY — danger sign(s): unable to drink, dehydration signs",
-            "💧 Start ORS immediately; give zinc (10mg if <6mo, 20mg if ≥6mo) for 10 days",
-            "⚠️ Persistent vomiting — give ORS in small sips, monitor for dehydration",
+            " REFER IMMEDIATELY — danger sign(s): unable to drink, dehydration signs",
+            " Start ORS immediately; give zinc (10mg if <6mo, 20mg if ≥6mo) for 10 days",
+            " Persistent vomiting — give ORS in small sips, monitor for dehydration",
         ],
         "checklist": [
             "Is the stool bloody? (Bloody diarrhoea = dysentery, requires antibiotics per WHO ICCM)",
@@ -233,8 +233,8 @@ DEMO_RESULTS = [
             "trigger_quotes": ["high fever", "sweating at night"],
         },
         "recommendations": [
-            "🌡️ Give paracetamol for fever; do malaria RDT if available",
-            "💊 Malaria RDT positive — give ACT (artemisinin-based combination therapy)",
+            " Give paracetamol for fever; do malaria RDT if available",
+            " Malaria RDT positive — give ACT (artemisinin-based combination therapy)",
         ],
         "checklist": [
             "Has ACT treatment been started? (First dose should be given within 24 hours of positive RDT)",
@@ -341,7 +341,7 @@ DEMO_RESULTS = [
             "trigger_quotes": ["fever 2 days", "cough", "pulling in of chest"],
         },
         "recommendations": [
-            "🚨 REFER IMMEDIATELY — danger sign(s): chest indrawing, unable to drink",
+            " REFER IMMEDIATELY — danger sign(s): chest indrawing, unable to drink",
             "Give first dose of amoxicillin if available before referral",
             "Keep infant warm and continue breastfeeding attempts during transport",
             "Count respiratory rate — fast breathing (\u226550/min for \u003c12 mo) confirms pneumonia",
@@ -537,7 +537,7 @@ DEMO_RESULTS = [
 # ── Failure Mode Demo ────────────────────────────────────────
 # Shows the hallucination detector catching a procedural hallucination
 FAILURE_MODE = {
-    "title": "🚨 Failure Mode: Hallucination Detected",
+    "title": " Failure Mode: Hallucination Detected",
     "description": (
         "This example shows MedGemma reporting 'rash: yes' even though "
         "the note says 'no rash observed.' The evidence quote exists in "
@@ -598,46 +598,94 @@ FAILURE_MODE = {
 # Each row includes a "date" (ISO Monday of the epi week) for proper axis labels.
 DEMO_SURVEILLANCE = {
     "weekly_counts": [
-        # ── Week 1 (Jan 6) ──
+        # Week 1 (Jan 6)
         {"week_id": 1, "date": "2025-01-06", "location_id": "loc_01", "syndrome_tag": "respiratory_fever", "count": 3},
-        {"week_id": 1, "date": "2025-01-06", "location_id": "loc_01", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
-        {"week_id": 1, "date": "2025-01-06", "location_id": "loc_02", "syndrome_tag": "respiratory_fever", "count": 2},
-        {"week_id": 1, "date": "2025-01-06", "location_id": "loc_02", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
-        # ── Week 2 (Jan 13) ──
+        {"week_id": 1, "date": "2025-01-06", "location_id": "loc_01", "syndrome_tag": "acute_watery_diarrhea", "count": 3},
+        {"week_id": 1, "date": "2025-01-06", "location_id": "loc_02", "syndrome_tag": "respiratory_fever", "count": 4},
+        {"week_id": 1, "date": "2025-01-06", "location_id": "loc_02", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 1, "date": "2025-01-06", "location_id": "loc_03", "syndrome_tag": "respiratory_fever", "count": 3},
+        {"week_id": 1, "date": "2025-01-06", "location_id": "loc_03", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 1, "date": "2025-01-06", "location_id": "loc_04", "syndrome_tag": "respiratory_fever", "count": 2},
+        {"week_id": 1, "date": "2025-01-06", "location_id": "loc_04", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
+        {"week_id": 1, "date": "2025-01-06", "location_id": "loc_05", "syndrome_tag": "respiratory_fever", "count": 3},
+        {"week_id": 1, "date": "2025-01-06", "location_id": "loc_05", "syndrome_tag": "acute_watery_diarrhea", "count": 4},
+        # Week 2 (Jan 13)
         {"week_id": 2, "date": "2025-01-13", "location_id": "loc_01", "syndrome_tag": "respiratory_fever", "count": 4},
-        {"week_id": 2, "date": "2025-01-13", "location_id": "loc_01", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 2, "date": "2025-01-13", "location_id": "loc_01", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
         {"week_id": 2, "date": "2025-01-13", "location_id": "loc_02", "syndrome_tag": "respiratory_fever", "count": 3},
-        {"week_id": 2, "date": "2025-01-13", "location_id": "loc_02", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
-        # ── Week 3 (Jan 20) ──
+        {"week_id": 2, "date": "2025-01-13", "location_id": "loc_02", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 2, "date": "2025-01-13", "location_id": "loc_03", "syndrome_tag": "respiratory_fever", "count": 2},
+        {"week_id": 2, "date": "2025-01-13", "location_id": "loc_03", "syndrome_tag": "acute_watery_diarrhea", "count": 3},
+        {"week_id": 2, "date": "2025-01-13", "location_id": "loc_04", "syndrome_tag": "respiratory_fever", "count": 4},
+        {"week_id": 2, "date": "2025-01-13", "location_id": "loc_04", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
+        {"week_id": 2, "date": "2025-01-13", "location_id": "loc_05", "syndrome_tag": "respiratory_fever", "count": 2},
+        {"week_id": 2, "date": "2025-01-13", "location_id": "loc_05", "syndrome_tag": "acute_watery_diarrhea", "count": 4},
+        # Week 3 (Jan 20)
         {"week_id": 3, "date": "2025-01-20", "location_id": "loc_01", "syndrome_tag": "respiratory_fever", "count": 5},
-        {"week_id": 3, "date": "2025-01-20", "location_id": "loc_01", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
-        {"week_id": 3, "date": "2025-01-20", "location_id": "loc_02", "syndrome_tag": "respiratory_fever", "count": 2},
-        {"week_id": 3, "date": "2025-01-20", "location_id": "loc_02", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
-        # ── Week 4 (Jan 27) ──
-        {"week_id": 4, "date": "2025-01-27", "location_id": "loc_01", "syndrome_tag": "respiratory_fever", "count": 3},
+        {"week_id": 3, "date": "2025-01-20", "location_id": "loc_01", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 3, "date": "2025-01-20", "location_id": "loc_02", "syndrome_tag": "respiratory_fever", "count": 4},
+        {"week_id": 3, "date": "2025-01-20", "location_id": "loc_02", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
+        {"week_id": 3, "date": "2025-01-20", "location_id": "loc_03", "syndrome_tag": "respiratory_fever", "count": 3},
+        {"week_id": 3, "date": "2025-01-20", "location_id": "loc_03", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 3, "date": "2025-01-20", "location_id": "loc_04", "syndrome_tag": "respiratory_fever", "count": 3},
+        {"week_id": 3, "date": "2025-01-20", "location_id": "loc_04", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 3, "date": "2025-01-20", "location_id": "loc_05", "syndrome_tag": "respiratory_fever", "count": 1},
+        {"week_id": 3, "date": "2025-01-20", "location_id": "loc_05", "syndrome_tag": "acute_watery_diarrhea", "count": 3},
+        # Week 4 (Jan 27)
+        {"week_id": 4, "date": "2025-01-27", "location_id": "loc_01", "syndrome_tag": "respiratory_fever", "count": 4},
         {"week_id": 4, "date": "2025-01-27", "location_id": "loc_01", "syndrome_tag": "acute_watery_diarrhea", "count": 3},
-        {"week_id": 4, "date": "2025-01-27", "location_id": "loc_02", "syndrome_tag": "respiratory_fever", "count": 4},
+        {"week_id": 4, "date": "2025-01-27", "location_id": "loc_02", "syndrome_tag": "respiratory_fever", "count": 3},
         {"week_id": 4, "date": "2025-01-27", "location_id": "loc_02", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
-        # ── Week 5 (Feb 3) ──
-        {"week_id": 5, "date": "2025-02-03", "location_id": "loc_01", "syndrome_tag": "respiratory_fever", "count": 4},
+        {"week_id": 4, "date": "2025-01-27", "location_id": "loc_03", "syndrome_tag": "respiratory_fever", "count": 2},
+        {"week_id": 4, "date": "2025-01-27", "location_id": "loc_03", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
+        {"week_id": 4, "date": "2025-01-27", "location_id": "loc_04", "syndrome_tag": "respiratory_fever", "count": 4},
+        {"week_id": 4, "date": "2025-01-27", "location_id": "loc_04", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 4, "date": "2025-01-27", "location_id": "loc_05", "syndrome_tag": "respiratory_fever", "count": 3},
+        {"week_id": 4, "date": "2025-01-27", "location_id": "loc_05", "syndrome_tag": "acute_watery_diarrhea", "count": 3},
+        # Week 5 (Feb 3)
+        {"week_id": 5, "date": "2025-02-03", "location_id": "loc_01", "syndrome_tag": "respiratory_fever", "count": 5},
         {"week_id": 5, "date": "2025-02-03", "location_id": "loc_01", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
         {"week_id": 5, "date": "2025-02-03", "location_id": "loc_02", "syndrome_tag": "respiratory_fever", "count": 3},
         {"week_id": 5, "date": "2025-02-03", "location_id": "loc_02", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
-        # ── Week 6 (Feb 10) ──
+        {"week_id": 5, "date": "2025-02-03", "location_id": "loc_03", "syndrome_tag": "respiratory_fever", "count": 3},
+        {"week_id": 5, "date": "2025-02-03", "location_id": "loc_03", "syndrome_tag": "acute_watery_diarrhea", "count": 3},
+        {"week_id": 5, "date": "2025-02-03", "location_id": "loc_04", "syndrome_tag": "respiratory_fever", "count": 2},
+        {"week_id": 5, "date": "2025-02-03", "location_id": "loc_04", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
+        {"week_id": 5, "date": "2025-02-03", "location_id": "loc_05", "syndrome_tag": "respiratory_fever", "count": 2},
+        {"week_id": 5, "date": "2025-02-03", "location_id": "loc_05", "syndrome_tag": "acute_watery_diarrhea", "count": 4},
+        # Week 6 (Feb 10)
         {"week_id": 6, "date": "2025-02-10", "location_id": "loc_01", "syndrome_tag": "respiratory_fever", "count": 6},
         {"week_id": 6, "date": "2025-02-10", "location_id": "loc_01", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
         {"week_id": 6, "date": "2025-02-10", "location_id": "loc_02", "syndrome_tag": "respiratory_fever", "count": 3},
         {"week_id": 6, "date": "2025-02-10", "location_id": "loc_02", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
-        # ── Week 7 (Feb 17) — OUTBREAK at loc_01 ──
+        {"week_id": 6, "date": "2025-02-10", "location_id": "loc_03", "syndrome_tag": "respiratory_fever", "count": 2},
+        {"week_id": 6, "date": "2025-02-10", "location_id": "loc_03", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 6, "date": "2025-02-10", "location_id": "loc_04", "syndrome_tag": "respiratory_fever", "count": 3},
+        {"week_id": 6, "date": "2025-02-10", "location_id": "loc_04", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
+        {"week_id": 6, "date": "2025-02-10", "location_id": "loc_05", "syndrome_tag": "respiratory_fever", "count": 3},
+        {"week_id": 6, "date": "2025-02-10", "location_id": "loc_05", "syndrome_tag": "acute_watery_diarrhea", "count": 3},
+        # Week 7 (Feb 17) — OUTBREAK at Kibera (respiratory), uptick at Kayole (diarrhoea)
         {"week_id": 7, "date": "2025-02-17", "location_id": "loc_01", "syndrome_tag": "respiratory_fever", "count": 18},
         {"week_id": 7, "date": "2025-02-17", "location_id": "loc_01", "syndrome_tag": "acute_watery_diarrhea", "count": 3},
         {"week_id": 7, "date": "2025-02-17", "location_id": "loc_02", "syndrome_tag": "respiratory_fever", "count": 5},
         {"week_id": 7, "date": "2025-02-17", "location_id": "loc_02", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
-        # ── Week 8 (Feb 24) — current week, partially reported ──
+        {"week_id": 7, "date": "2025-02-17", "location_id": "loc_03", "syndrome_tag": "respiratory_fever", "count": 3},
+        {"week_id": 7, "date": "2025-02-17", "location_id": "loc_03", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
+        {"week_id": 7, "date": "2025-02-17", "location_id": "loc_04", "syndrome_tag": "respiratory_fever", "count": 4},
+        {"week_id": 7, "date": "2025-02-17", "location_id": "loc_04", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
+        {"week_id": 7, "date": "2025-02-17", "location_id": "loc_05", "syndrome_tag": "respiratory_fever", "count": 2},
+        {"week_id": 7, "date": "2025-02-17", "location_id": "loc_05", "syndrome_tag": "acute_watery_diarrhea", "count": 7},
+        # Week 8 (Feb 24) — current week
         {"week_id": 8, "date": "2025-02-24", "location_id": "loc_01", "syndrome_tag": "respiratory_fever", "count": 14},
         {"week_id": 8, "date": "2025-02-24", "location_id": "loc_01", "syndrome_tag": "acute_watery_diarrhea", "count": 2},
         {"week_id": 8, "date": "2025-02-24", "location_id": "loc_02", "syndrome_tag": "respiratory_fever", "count": 4},
         {"week_id": 8, "date": "2025-02-24", "location_id": "loc_02", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
+        {"week_id": 8, "date": "2025-02-24", "location_id": "loc_03", "syndrome_tag": "respiratory_fever", "count": 2},
+        {"week_id": 8, "date": "2025-02-24", "location_id": "loc_03", "syndrome_tag": "acute_watery_diarrhea", "count": 3},
+        {"week_id": 8, "date": "2025-02-24", "location_id": "loc_04", "syndrome_tag": "respiratory_fever", "count": 3},
+        {"week_id": 8, "date": "2025-02-24", "location_id": "loc_04", "syndrome_tag": "acute_watery_diarrhea", "count": 1},
+        {"week_id": 8, "date": "2025-02-24", "location_id": "loc_05", "syndrome_tag": "respiratory_fever", "count": 3},
+        {"week_id": 8, "date": "2025-02-24", "location_id": "loc_05", "syndrome_tag": "acute_watery_diarrhea", "count": 6},
     ],
     "anomalies": [
         {
@@ -691,14 +739,20 @@ DEMO_SURVEILLANCE = {
             "AWD covers presentations consistent with cholera, rotavirus, food-borne illness, and "
             "Enterotoxigenic E. coli (ETEC) — community water source monitoring is advised during rainy season.\n\n"
 
-            "Data source: CHW Copilot syndromic surveillance network · 2 locations · 8 weeks of data"
+            "Data source: CHW Copilot syndromic surveillance network · 5 locations · 8 weeks of data"
         ),
         "alerts": [
             {
                 "severity": "high",
                 "location": "loc_01",
                 "syndrome": "respiratory_fever",
-                "message": "18 cases in W7 (4.3× baseline), 14 in W8 — investigate immediately",
+                "message": "18 cases in W7 (4.3x baseline), 14 in W8 -- investigate immediately",
+            },
+            {
+                "severity": "medium",
+                "location": "loc_05",
+                "syndrome": "acute_watery_diarrhea",
+                "message": "7 cases in W7 (2.3x baseline) -- monitor water sources",
             }
         ],
     },
@@ -708,4 +762,7 @@ DEMO_SURVEILLANCE = {
 DEMO_LOCATIONS = {
     "loc_01": {"name": "Kibera Health Post", "lat": -1.3133, "lon": 36.7876},
     "loc_02": {"name": "Mathare Community Center", "lat": -1.2572, "lon": 36.8575},
+    "loc_03": {"name": "Dandora Community Health Unit", "lat": -1.2456, "lon": 36.9012},
+    "loc_04": {"name": "Langata Sub-County Hospital", "lat": -1.3550, "lon": 36.7350},
+    "loc_05": {"name": "Kayole Health Centre", "lat": -1.2750, "lon": 36.9150},
 }
