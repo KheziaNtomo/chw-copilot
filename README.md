@@ -72,8 +72,36 @@ streamlit run app/app.py
 
 Without a GPU, the app falls back to demo mode automatically — no errors, just pre-computed results.
 
-The full pipeline (including live MedGemma inference on 60 evaluation notes) is demonstrated in [`notebooks/kaggle_main.ipynb`](notebooks/kaggle_main.ipynb), which runs on a free Kaggle T4 GPU.
+### How MedGemma is used
 
+The pipeline loads `google/medgemma-4b-it` in bfloat16 precision and uses it for three tasks:
+
+```python
+from transformers import AutoProcessor, AutoModelForImageTextToText
+
+processor = AutoProcessor.from_pretrained("google/medgemma-4b-it", token=HF_TOKEN)
+model = AutoModelForImageTextToText.from_pretrained(
+    "google/medgemma-4b-it",
+    torch_dtype=torch.bfloat16,
+    device_map="auto",
+    token=HF_TOKEN,
+)
+
+# 1. Structured extraction — note → JSON encounter
+#    Prompt instructs MedGemma to extract symptoms, demographics, severity,
+#    red flags, and a verbatim evidence_quote per field
+response = model.generate(prompt=extraction_prompt + chw_note, ...)
+
+# 2. Syndrome tagging — JSON encounter → syndrome label + confidence
+response = model.generate(prompt=syndrome_prompt + encounter_json, ...)
+
+# 3. Checklist generation — encounter → follow-up questions for CHW
+response = model.generate(prompt=checklist_prompt + encounter_json, ...)
+```
+
+Prompt templates are in [`app/prompts/`](app/prompts/). All outputs are validated against JSON Schema before being used.
+
+The complete pipeline run on 60 evaluation notes is in [`notebooks/kaggle_main.ipynb`](notebooks/kaggle_main.ipynb) — runnable for free on a Kaggle T4 GPU.
 
 ## Repo Structure
 
