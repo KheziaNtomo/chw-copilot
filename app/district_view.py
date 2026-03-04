@@ -36,6 +36,34 @@ SYNDROME_COLORS = {
     "unclear":               "#9a9a88",
 }
 
+# Line dash patterns for distinguishing locations
+LOCATION_DASHES = ["solid", "dash", "dot", "dashdot", "longdash"]
+
+
+def _detect_anomalies(weekly_df, baseline_weeks=4, threshold=2.0):
+    """Compute anomalies dynamically from weekly data.
+
+    For each (location, syndrome) pair, compute a rolling baseline mean
+    over the preceding `baseline_weeks` weeks.  Flag any week where count
+    >= threshold × baseline_mean *and* count >= 5.
+    Returns a set of (week_id, location_id, syndrome_tag) tuples.
+    """
+    anomalies = set()
+    for (loc, syn), grp in weekly_df.groupby(["location_id", "syndrome_tag"]):
+        grp = grp.sort_values("week_id")
+        counts = grp[["week_id", "count"]].values.tolist()
+        for i, (wid, cnt) in enumerate(counts):
+            # Need at least 2 prior weeks for a baseline
+            if i < 2:
+                continue
+            start = max(0, i - baseline_weeks)
+            baseline = [c for _, c in counts[start:i]]
+            if not baseline:
+                continue
+            mean_val = sum(baseline) / len(baseline)
+            if mean_val > 0 and cnt >= threshold * mean_val and cnt >= 5:
+                anomalies.add((int(wid), loc, syn))
+    return anomalies
 
 def render_district_view():
     """Main district surveillance dashboard renderer."""
@@ -241,7 +269,7 @@ def render_district_view():
     )
 
     if PLOTLY_AVAILABLE:
-        # ── Filter controls: Date range + Illness toggle ──
+        # ── Filter controls: Date range + Syndrome + Location ──
         filter_row1, filter_row2, filter_row3 = st.columns([2, 2, 2])
 
         all_week_ids = sorted(weekly_data["week_id"].unique())
@@ -271,79 +299,78 @@ def render_district_view():
 
         all_locations = sorted(weekly_data["location_name"].unique())
         with filter_row3:
-            use_all = st.checkbox("All Locations", value=True, key="loc_all")
-            if use_all:
-                selected_locations = all_locations
-            else:
-                selected_locations = []
-                for loc in all_locations:
-                    if st.checkbox(loc, value=True, key=f"loc_{loc}"):
-                        selected_locations.append(loc)
-                st.markdown(
-                    f'<span style="font-size:0.7rem;color:#8D957E;">{len(selected_locations)} of {len(all_locations)} selected</span>',
-                    unsafe_allow_html=True,
-                )
+            selected_locations = st.multiselect(
+                "Locations",
+                options=all_locations,
+                default=all_locations,
+                key="loc_select",
+            )
 
         # Apply filters
+        active_syns = selected_syndromes if selected_syndromes else all_syndromes
+        active_locs = selected_locations if selected_locations else all_locations
         chart_data = weekly_data[
             (weekly_data["week_id"] >= week_range[0]) &
             (weekly_data["week_id"] <= week_range[1]) &
-            (weekly_data["syndrome_tag"].isin(selected_syndromes if selected_syndromes else all_syndromes)) &
-            (weekly_data["location_name"].isin(selected_locations if selected_locations else all_locations))
+            (weekly_data["syndrome_tag"].isin(active_syns)) &
+            (weekly_data["location_name"].isin(active_locs))
         ]
 
-        # Aggregate
-        agg = (
-            chart_data
-            .groupby(["week_id", "week_label", "syndrome_tag", "syndrome_display"])["count"]
-            .sum()
-            .reset_index()
-        )
+        # ── Dynamic anomaly detection ──
+        detected = _detect_anomalies(weekly_data)
+        # Build lookup: set of (week_id, location_name, syndrome_tag)
+        loc_id_to_name = {k: v.get("name", k) for k, v in DEMO_LOCATIONS.items()}
+        anomaly_set = set()  # (week_id, location_name, syndrome_tag)
+        for wid, loc_id, syn in detected:
+            loc_name = loc_id_to_name.get(loc_id, loc_id)
+            if loc_name in active_locs and syn in active_syns:
+                anomaly_set.add((wid, loc_name, syn))
+        anomaly_week_ids = set(wid for wid, _, _ in anomaly_set)
 
-        # Build week_id → week_label mapping for anomaly shading
-        wid_to_label = dict(zip(agg["week_id"], agg["week_label"]))
-        # Filter anomalies to match current syndrome + location selections
-        active_syn = set(selected_syndromes if selected_syndromes else all_syndromes)
-        loc_name_to_id = {v.get("name", k): k for k, v in DEMO_LOCATIONS.items()}
-        active_loc_ids = set(loc_name_to_id.get(n, n) for n in (selected_locations if selected_locations else all_locations))
-        anomaly_week_ids = set(
-            a["week_id"] for a in surv["anomalies"]
-            if a.get("syndrome_tag") in active_syn and a.get("location_id") in active_loc_ids
-        )
+        # Build week_id → week_label mapping
+        wid_to_label = dict(zip(chart_data["week_id"], chart_data["week_label"]))
 
         fig = go.Figure()
-        for syndrome_tag in agg["syndrome_tag"].unique():
-            grp = agg[agg["syndrome_tag"] == syndrome_tag].sort_values("week_id")
-            color = SYNDROME_COLORS.get(syndrome_tag, "#888")
-            label = SYNDROME_DISPLAY.get(syndrome_tag, syndrome_tag)
 
-            marker_colors = []
-            marker_sizes = []
-            marker_lines = []
-            for _, row in grp.iterrows():
-                if int(row["week_id"]) in anomaly_week_ids:
-                    marker_colors.append("#c0392b")
-                    marker_sizes.append(11)
-                    marker_lines.append(dict(color="#c0392b", width=2))
-                else:
-                    marker_colors.append(color)
-                    marker_sizes.append(7)
-                    marker_lines.append(dict(color="white", width=1.5))
+        # Create one trace per (location, syndrome) — each location gets its own line
+        loc_dash_map = {loc: LOCATION_DASHES[i % len(LOCATION_DASHES)] for i, loc in enumerate(sorted(active_locs))}
+        show_loc_in_name = len(active_locs) > 1
 
-            fig.add_trace(go.Scatter(
-                x=grp["week_label"],
-                y=grp["count"],
-                mode="lines+markers",
-                name=label,
-                line=dict(color=color, width=2.5),
-                marker=dict(size=marker_sizes, color=marker_colors,
-                            line=dict(color=[ml["color"] for ml in marker_lines],
-                                      width=[ml["width"] for ml in marker_lines])),
-                hovertemplate=f"<b>{label}</b><br>%{{x}} : %{{y}} cases<extra></extra>",
-            ))
+        for loc_name in sorted(active_locs):
+            loc_data = chart_data[chart_data["location_name"] == loc_name]
+            for syndrome_tag in sorted(loc_data["syndrome_tag"].unique()):
+                grp = loc_data[loc_data["syndrome_tag"] == syndrome_tag]
+                grp = grp.groupby(["week_id", "week_label"])["count"].sum().reset_index().sort_values("week_id")
+
+                color = SYNDROME_COLORS.get(syndrome_tag, "#888")
+                syn_label = SYNDROME_DISPLAY.get(syndrome_tag, syndrome_tag)
+                trace_name = f"{loc_name} — {syn_label}" if show_loc_in_name else syn_label
+                dash = loc_dash_map.get(loc_name, "solid")
+
+                # Mark anomaly points
+                marker_colors = []
+                marker_sizes = []
+                for _, row in grp.iterrows():
+                    is_anom = (int(row["week_id"]), loc_name, syndrome_tag) in anomaly_set
+                    marker_colors.append("#c0392b" if is_anom else color)
+                    marker_sizes.append(11 if is_anom else 6)
+
+                fig.add_trace(go.Scatter(
+                    x=grp["week_label"],
+                    y=grp["count"],
+                    mode="lines+markers",
+                    name=trace_name,
+                    line=dict(color=color, width=2.5, dash=dash),
+                    marker=dict(size=marker_sizes, color=marker_colors,
+                                line=dict(color="white", width=1)),
+                    hovertemplate=f"<b>{trace_name}</b><br>%{{x}} : %{{y}} cases<extra></extra>",
+                ))
 
         # Red shaded regions for anomaly weeks
-        all_chart_labels = sorted(agg["week_label"].unique(), key=lambda x: int(x.split("·")[0].strip()[1:]))
+        all_chart_labels = sorted(
+            chart_data["week_label"].unique(),
+            key=lambda x: int(x.split("\u00b7")[0].strip()[1:]) if "\u00b7" in x else int(x.split("·")[0].strip()[1:])
+        )
         for awid in sorted(anomaly_week_ids):
             wlabel = wid_to_label.get(awid)
             if wlabel and wlabel in all_chart_labels:
@@ -353,9 +380,6 @@ def render_district_view():
                     fillcolor="rgba(192,57,43,0.08)",
                     line=dict(color="rgba(192,57,43,0.3)", width=1, dash="dot"),
                     layer="below",
-                    annotation_text="Alert" if awid == min(anomaly_week_ids) else "",
-                    annotation_position="top left",
-                    annotation_font=dict(color="#c0392b", size=10),
                 )
 
         fig.update_layout(
@@ -380,10 +404,11 @@ def render_district_view():
                 bordercolor="#dde5d4",
                 borderwidth=1,
                 orientation="h",
-                y=-0.2,
+                y=-0.25,
+                font=dict(size=10),
             ),
             margin=dict(l=10, r=10, t=10, b=40),
-            height=340,
+            height=380,
         )
         fig.update_xaxes(showgrid=True, gridwidth=1)
         fig.update_yaxes(showgrid=True, gridwidth=1)
