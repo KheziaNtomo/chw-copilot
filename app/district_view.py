@@ -155,130 +155,7 @@ def render_district_view():
                 unsafe_allow_html=True,
             )
 
-    # ── Syndrome Trends Line Chart ───────────────────────────────
-    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
-    st.markdown(
-        '<p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;'
-        'font-weight:700;color:#8D957E;margin-bottom:0.5rem;">Weekly Syndrome Trends</p>',
-        unsafe_allow_html=True,
-    )
-
-    if PLOTLY_AVAILABLE:
-        # Location selector (checkbox-based)
-        all_locations = sorted(weekly_data["location_name"].unique())
-        filter_col1, filter_col2 = st.columns([1, 3])
-        with filter_col1:
-            use_all = st.checkbox("All Locations", value=True, key="loc_all")
-            if use_all:
-                selected_locations = all_locations
-            else:
-                selected_locations = []
-                for loc in all_locations:
-                    if st.checkbox(loc, value=True, key=f"loc_{loc}"):
-                        selected_locations.append(loc)
-                st.markdown(
-                    f'<span style="font-size:0.7rem;color:#8D957E;">{len(selected_locations)} of {len(all_locations)} selected</span>',
-                    unsafe_allow_html=True,
-                )
-
-        # Filter data
-        chart_data = weekly_data[weekly_data["location_name"].isin(selected_locations)] if selected_locations else weekly_data
-
-        # Aggregate (sum across locations if "All", or just the one location)
-        agg = (
-            chart_data
-            .groupby(["week_id", "week_label", "syndrome_tag", "syndrome_display"])["count"]
-            .sum()
-            .reset_index()
-        )
-
-        # Build week_id → week_label mapping for anomaly shading
-        wid_to_label = dict(zip(agg["week_id"], agg["week_label"]))
-        # Identify anomaly week labels
-        anomaly_week_ids = set(a["week_id"] for a in surv["anomalies"])
-
-        fig = go.Figure()
-        for syndrome_tag in agg["syndrome_tag"].unique():
-            grp = agg[agg["syndrome_tag"] == syndrome_tag].sort_values("week_id")
-            color = SYNDROME_COLORS.get(syndrome_tag, "#888")
-            label = SYNDROME_DISPLAY.get(syndrome_tag, syndrome_tag)
-
-            # Use larger red markers for anomaly weeks
-            marker_colors = []
-            marker_sizes = []
-            marker_lines = []
-            for _, row in grp.iterrows():
-                if int(row["week_id"]) in anomaly_week_ids:
-                    marker_colors.append("#c0392b")
-                    marker_sizes.append(11)
-                    marker_lines.append(dict(color="#c0392b", width=2))
-                else:
-                    marker_colors.append(color)
-                    marker_sizes.append(7)
-                    marker_lines.append(dict(color="white", width=1.5))
-
-            fig.add_trace(go.Scatter(
-                x=grp["week_label"],
-                y=grp["count"],
-                mode="lines+markers",
-                name=label,
-                line=dict(color=color, width=2.5),
-                marker=dict(size=marker_sizes, color=marker_colors,
-                            line=dict(color=[ml["color"] for ml in marker_lines],
-                                      width=[ml["width"] for ml in marker_lines])),
-                hovertemplate=f"<b>{label}</b><br>%{{x}} : %{{y}} cases<extra></extra>",
-            ))
-
-        # Add red shaded regions for anomaly weeks
-        all_week_labels = sorted(agg["week_label"].unique(), key=lambda x: int(x.split("·")[0].strip()[1:]))
-        for awid in sorted(anomaly_week_ids):
-            wlabel = wid_to_label.get(awid)
-            if wlabel and wlabel in all_week_labels:
-                idx = all_week_labels.index(wlabel)
-                fig.add_vrect(
-                    x0=idx - 0.4, x1=idx + 0.4,
-                    fillcolor="rgba(192,57,43,0.08)",
-                    line=dict(color="rgba(192,57,43,0.3)", width=1, dash="dot"),
-                    layer="below",
-                    annotation_text="Alert" if awid == min(anomaly_week_ids) else "",
-                    annotation_position="top left",
-                    annotation_font=dict(color="#c0392b", size=10),
-                )
-
-        fig.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(247,247,244,0)",
-            font=dict(family="Inter", color="#4a5a3a", size=12),
-            xaxis=dict(
-                title="Epidemiological Week",
-                gridcolor="rgba(0,0,0,0.05)",
-                linecolor="#dde5d4",
-                tickmode="linear",
-            ),
-            yaxis=dict(
-                title="Case Count",
-                gridcolor="rgba(0,0,0,0.05)",
-                linecolor="#dde5d4",
-                rangemode="tozero",
-            ),
-            legend=dict(
-                bgcolor="rgba(255,255,255,0.8)",
-                bordercolor="#dde5d4",
-                borderwidth=1,
-                orientation="h",
-                y=-0.2,
-            ),
-            margin=dict(l=10, r=10, t=10, b=40),
-            height=340,
-        )
-        fig.update_xaxes(showgrid=True, gridwidth=1)
-        fig.update_yaxes(showgrid=True, gridwidth=1)
-
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-    else:
-        st.dataframe(weekly_data[["week_id","location_name","syndrome_display","count"]], use_container_width=True)
-
-    # ── Location Map (colored by outlier status) ─────────────────
+    # ── Location Alert Map (ABOVE chart — shows alerts for current week) ───
     st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
     st.markdown(
         '<p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;'
@@ -287,7 +164,7 @@ def render_district_view():
     )
 
     if PLOTLY_AVAILABLE and DEMO_LOCATIONS:
-        # Determine which locations have anomalies in latest weeks
+        # Determine which locations have anomalies
         alert_locations = set()
         for anomaly in surv["anomalies"]:
             alert_locations.add(anomaly["location_id"])
@@ -329,7 +206,6 @@ def render_district_view():
             hoverinfo="text",
         ))
 
-        # Compute center
         center_lat = sum(map_lats) / len(map_lats)
         center_lon = sum(map_lons) / len(map_lons)
 
@@ -356,7 +232,158 @@ def render_district_view():
             unsafe_allow_html=True,
         )
 
+    # ── Syndrome Trends Line Chart (with date + illness toggles) ──────
+    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
+    st.markdown(
+        '<p style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;'
+        'font-weight:700;color:#8D957E;margin-bottom:0.5rem;">Weekly Syndrome Trends</p>',
+        unsafe_allow_html=True,
+    )
 
+    if PLOTLY_AVAILABLE:
+        # ── Filter controls: Date range + Illness toggle ──
+        filter_row1, filter_row2, filter_row3 = st.columns([2, 2, 2])
+
+        all_week_ids = sorted(weekly_data["week_id"].unique())
+        min_week = int(min(all_week_ids))
+        max_week = int(max(all_week_ids))
+
+        with filter_row1:
+            week_range = st.slider(
+                "Date range (epi weeks)",
+                min_value=min_week,
+                max_value=max_week,
+                value=(min_week, max_week),
+                key="week_range",
+            )
+
+        all_syndromes = sorted(weekly_data["syndrome_tag"].unique())
+        with filter_row2:
+            st.markdown(
+                '<p style="font-size:0.7rem;color:#6a6255;margin-bottom:0.2rem;">Syndrome</p>',
+                unsafe_allow_html=True,
+            )
+            selected_syndromes = []
+            for syn in all_syndromes:
+                label = SYNDROME_DISPLAY.get(syn, syn)
+                if st.checkbox(label, value=True, key=f"syn_{syn}"):
+                    selected_syndromes.append(syn)
+
+        all_locations = sorted(weekly_data["location_name"].unique())
+        with filter_row3:
+            use_all = st.checkbox("All Locations", value=True, key="loc_all")
+            if use_all:
+                selected_locations = all_locations
+            else:
+                selected_locations = []
+                for loc in all_locations:
+                    if st.checkbox(loc, value=True, key=f"loc_{loc}"):
+                        selected_locations.append(loc)
+                st.markdown(
+                    f'<span style="font-size:0.7rem;color:#8D957E;">{len(selected_locations)} of {len(all_locations)} selected</span>',
+                    unsafe_allow_html=True,
+                )
+
+        # Apply filters
+        chart_data = weekly_data[
+            (weekly_data["week_id"] >= week_range[0]) &
+            (weekly_data["week_id"] <= week_range[1]) &
+            (weekly_data["syndrome_tag"].isin(selected_syndromes if selected_syndromes else all_syndromes)) &
+            (weekly_data["location_name"].isin(selected_locations if selected_locations else all_locations))
+        ]
+
+        # Aggregate
+        agg = (
+            chart_data
+            .groupby(["week_id", "week_label", "syndrome_tag", "syndrome_display"])["count"]
+            .sum()
+            .reset_index()
+        )
+
+        # Build week_id → week_label mapping for anomaly shading
+        wid_to_label = dict(zip(agg["week_id"], agg["week_label"]))
+        anomaly_week_ids = set(a["week_id"] for a in surv["anomalies"])
+
+        fig = go.Figure()
+        for syndrome_tag in agg["syndrome_tag"].unique():
+            grp = agg[agg["syndrome_tag"] == syndrome_tag].sort_values("week_id")
+            color = SYNDROME_COLORS.get(syndrome_tag, "#888")
+            label = SYNDROME_DISPLAY.get(syndrome_tag, syndrome_tag)
+
+            marker_colors = []
+            marker_sizes = []
+            marker_lines = []
+            for _, row in grp.iterrows():
+                if int(row["week_id"]) in anomaly_week_ids:
+                    marker_colors.append("#c0392b")
+                    marker_sizes.append(11)
+                    marker_lines.append(dict(color="#c0392b", width=2))
+                else:
+                    marker_colors.append(color)
+                    marker_sizes.append(7)
+                    marker_lines.append(dict(color="white", width=1.5))
+
+            fig.add_trace(go.Scatter(
+                x=grp["week_label"],
+                y=grp["count"],
+                mode="lines+markers",
+                name=label,
+                line=dict(color=color, width=2.5),
+                marker=dict(size=marker_sizes, color=marker_colors,
+                            line=dict(color=[ml["color"] for ml in marker_lines],
+                                      width=[ml["width"] for ml in marker_lines])),
+                hovertemplate=f"<b>{label}</b><br>%{{x}} : %{{y}} cases<extra></extra>",
+            ))
+
+        # Red shaded regions for anomaly weeks
+        all_chart_labels = sorted(agg["week_label"].unique(), key=lambda x: int(x.split("·")[0].strip()[1:]))
+        for awid in sorted(anomaly_week_ids):
+            wlabel = wid_to_label.get(awid)
+            if wlabel and wlabel in all_chart_labels:
+                idx = all_chart_labels.index(wlabel)
+                fig.add_vrect(
+                    x0=idx - 0.4, x1=idx + 0.4,
+                    fillcolor="rgba(192,57,43,0.08)",
+                    line=dict(color="rgba(192,57,43,0.3)", width=1, dash="dot"),
+                    layer="below",
+                    annotation_text="Alert" if awid == min(anomaly_week_ids) else "",
+                    annotation_position="top left",
+                    annotation_font=dict(color="#c0392b", size=10),
+                )
+
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(247,247,244,0)",
+            font=dict(family="Inter", color="#4a5a3a", size=12),
+            xaxis=dict(
+                title="Epidemiological Week",
+                gridcolor="rgba(0,0,0,0.05)",
+                linecolor="#dde5d4",
+                tickmode="linear",
+            ),
+            yaxis=dict(
+                title="Case Count",
+                gridcolor="rgba(0,0,0,0.05)",
+                linecolor="#dde5d4",
+                rangemode="tozero",
+                dtick=1,
+            ),
+            legend=dict(
+                bgcolor="rgba(255,255,255,0.8)",
+                bordercolor="#dde5d4",
+                borderwidth=1,
+                orientation="h",
+                y=-0.2,
+            ),
+            margin=dict(l=10, r=10, t=10, b=40),
+            height=340,
+        )
+        fig.update_xaxes(showgrid=True, gridwidth=1)
+        fig.update_yaxes(showgrid=True, gridwidth=1)
+
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    else:
+        st.dataframe(weekly_data[["week_id","location_name","syndrome_display","count"]], use_container_width=True)
 
     # ── Export ───────────────────────────────────────────────────
     st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
@@ -379,3 +406,4 @@ def render_district_view():
             mime="application/json",
             use_container_width=True,
         )
+
