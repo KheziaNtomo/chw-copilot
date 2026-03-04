@@ -127,23 +127,49 @@ def render_district_view():
 
     weekly_data["week_label"] = weekly_data.apply(week_label, axis=1)
 
-    latest_week  = int(weekly_data["week_id"].max())
-    latest       = weekly_data[weekly_data["week_id"] == latest_week]
-    total_cases  = int(latest["count"].sum())
-    # Dynamic anomaly detection
+    # Dynamic anomaly detection (computed on full data)
     detected_anomalies = _detect_anomalies(weekly_data)
     loc_id_to_name = {k: v.get("name", k) for k, v in DEMO_LOCATIONS.items()}
-    alert_loc_ids = set(loc_id for _, loc_id, _ in detected_anomalies)
-    num_anomalies = len(detected_anomalies)
+    sitrep = surv["sitrep"]
+
+    # ── Week selector ─────────────────────────────────────────────
+    all_week_ids = sorted(weekly_data["week_id"].unique())
+    max_week = int(max(all_week_ids))
+    wk_labels = {}
+    for wid in all_week_ids:
+        row = weekly_data[weekly_data["week_id"] == wid].iloc[0]
+        wk_labels[wid] = row["week_label"]
+
+    sel_col, _ = st.columns([1, 3])
+    with sel_col:
+        selected_week = st.selectbox(
+            "Reporting week",
+            options=list(reversed(all_week_ids)),
+            format_func=lambda w: wk_labels.get(w, f"W{w}"),
+            index=0,
+            key="report_week",
+        )
+
+    latest_week = int(selected_week)
+    latest = weekly_data[weekly_data["week_id"] == latest_week]
+    total_cases = int(latest["count"].sum())
+
+    # Alerts active for the selected week
+    alert_loc_ids = set(loc_id for wid, loc_id, _ in detected_anomalies if wid == latest_week)
+    week_alerts = [
+        (wid, loc_id, syn) for wid, loc_id, syn in detected_anomalies
+        if wid <= latest_week
+    ]
+    num_alerts = len(sitrep.get("alerts", []))
     num_locations = latest["location_id"].nunique()
-    weeks_tracked = weekly_data["week_id"].nunique()
+    weeks_tracked = latest_week - min(all_week_ids) + 1
 
     # ── Summary Metrics ──────────────────────────────────────────
     col1, col2, col3, col4 = st.columns(4)
 
     metrics = [
         (col1, str(total_cases),  f"Cases · Week {latest_week}", ""),
-        (col2, str(num_anomalies), "Active Alerts",  "alert" if num_anomalies > 0 else "ok"),
+        (col2, str(num_alerts), "Active Alerts",  "alert" if num_alerts > 0 else "ok"),
         (col3, str(num_locations), "Locations Reporting", ""),
         (col4, str(weeks_tracked), "Weeks Tracked", ""),
     ]
@@ -161,7 +187,6 @@ def render_district_view():
     st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
 
     # -- Situation Report Table (top of dashboard) --
-    sitrep = surv["sitrep"]
     if sitrep.get("alerts"):
         with st.expander(f"Situation Report ({len(sitrep['alerts'])} alerts)", expanded=True):
             sev_colors = {"critical": "#a11", "high": "#c0392b", "medium": "#b5770d", "low": "#8D957E"}
