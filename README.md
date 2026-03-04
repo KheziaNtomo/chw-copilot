@@ -1,139 +1,90 @@
 # CHW Copilot
 
-Offline-first, privacy-focused agentic surveillance tool that turns Community Health Worker (CHW) field notes into schema-validated structured encounters and syndromic surveillance signals. Powered by **MedGemma** with **Strawberry** hallucination detection.
+A demo tool that turns Community Health Worker (CHW) field notes into structured encounters and syndromic surveillance signals. Built with MedGemma and deployed as a Streamlit web app.
 
-**MedGemma Impact Challenge — Agentic Workflow Prize**
+> **⚠️ Demo only.** This app runs on pre-computed pipeline outputs — no GPU or model access required. All notes and surveillance data are synthetic, created for demonstration purposes. Not for clinical use.
 
-## Architecture
+---
 
-```
-                    ┌─────────────────────────────────────────┐
-                    │         CHW Copilot Pipeline            │
-                    │      6-Agent Agentic Orchestrator       │
-                    └─────────────────────────────────────────┘
+## What It Does
 
- CHW Note ──→ [Voice Transcription]  ← MedASR (optional)
-       │           │
-       ▼           ▼
-  ┌──────────────────────────────────────────────────────┐
-  │  Agent 1: Encounter Extractor (MedGemma)        │
-  │  → Structured JSON with evidence_quote per claim     │
-  ├──────────────────────────────────────────────────────┤
-  │  Agent 2: Evidence Grounder (Deterministic)          │
-  │  → Downgrades unsupported claims to "unknown"        │
-  ├──────────────────────────────────────────────────────┤
-  │  Agent 3: Hallucination Detector (Strawberry/Pythea) │
-  │  → Flags procedural hallucinations via budget_gap    │
-  ├──────────────────────────────────────────────────────┤
-  │  Agent 4: Syndrome Tagger (MedGemma)            │
-  │  → respiratory_fever / acute_watery_diarrhea / other │
-  ├──────────────────────────────────────────────────────┤
-  │  Agent 5: Checklist Generator (MedGemma)        │
-  │  → Priority-ranked follow-up questions               │
-  ├──────────────────────────────────────────────────────┤
-  │  Agent 6: Schema Validator (Deterministic)           │
-  │  → JSON Schema compliance + final pass/fail          │
-  └──────────────────────────────────────────────────────┘
-       │
-       ▼
-  Aggregation → Anomaly Detection → Weekly SITREP
-```
+CHWs record patient encounters as informal shorthand — abbreviated, multilingual, and unstructured. CHW Copilot runs these notes through a structured extraction pipeline to produce:
 
-### Models & Tools
+- **Structured encounter JSON** — symptoms, demographics, severity, red flags, referral status
+- **Syndrome classification** — respiratory fever, acute watery diarrhoea, other, unclear
+- **CHW checklist** — follow-up questions for missing or ambiguous clinical information
+- **District surveillance dashboard** — weekly syndrome counts, anomaly detection, SITREP
 
-| Component | Model / Tool | Role |
-|-----------|-------------|------|
-| Extraction | MedGemma (`google/medgemma-4b-it`) | Structured encounter from free-text |
-| Evidence Grounding | Deterministic | Verify evidence_quote ⊂ note |
-| Hallucination Detection | Strawberry (Pythea) | Budget gap analysis per claim |
-| Syndrome Tagging | MedGemma | Syndromic classification |
-| Checklist | MedGemma | Follow-up question generation |
-| Voice Input | MedASR (optional) | Medical speech-to-text |
-| Anomaly Detection | Deterministic (z-score) | Surge detection per location/syndrome |
+## Demo Data
 
-### MedGemma Adaptation
+The app ships with **8 hand-crafted CHW notes** covering a range of clinical presentations (febrile illness, diarrhoea with dehydration, unclear presentations, hallucination test cases). These are pre-processed — the pipeline outputs are baked in so the demo works without a live model.
 
-- **Adaptation method**: Prompt engineering — zero-shot + structured output via JSON schema
-- **API**: `AutoModelForImageTextToText` + `AutoProcessor` (chat template with content blocks)
-- **Evidence grounding**: Every LLM claim requires `evidence_quote` substring of original note
+The surveillance dashboard uses **synthetic weekly encounter counts** across 5 Nairobi locations over 12 weeks, with a simulated respiratory fever cluster injected at weeks 7–8 to demonstrate anomaly detection.
 
-## Repo Structure
+## Pipeline
 
 ```
-schemas/          → JSON Schemas (encounter, checklist, syndrome, sitrep)
-prompts/          → Prompt templates for all model calls
-data_synth/       → Synthetic gold data (60 CHW notes) + simulation events (672 events)
-src/              → Pipeline modules
-  ├── config.py         → Centralized configuration
-  ├── models.py         → MedGemma loader + inference
-  ├── pipeline.py       → 6-agent orchestrator with trace
-  ├── hallucination.py  → Strawberry integration
-  ├── voice.py          → MedASR voice transcription
-  ├── validate.py       → Evidence enforcement + schema validation
-  ├── tagger.py         → Syndrome tagging (LLM + deterministic)
-  ├── checklist.py      → Checklist generation
-  ├── detect.py         → Anomaly detection
-  └── sitrep.py         → SITREP generation
-app/              → Streamlit demo application
-  ├── app.py            → Main entry point
-  ├── chw_view.py       → CHW field worker interface
-  ├── district_view.py  → District surveillance dashboard
-  ├── demo_data.py      → Pre-computed offline demo data
-  └── styles.css        → Premium dark medical theme
-golden_artifacts/ → Sample inputs, outputs, failure modes
-tests/            → Unit tests (30 tests, 4 files)
-notebooks/        → Kaggle notebook
+CHW note (free text)
+  ↓
+[1] Extract       — MedGemma 4B: structured JSON with evidence quotes
+  ↓
+[2] Ground        — Deterministic: verify every claim is in the note
+  ↓
+[3] Verify        — Hallucination detection: flag contradictions
+  ↓
+[4] Tag           — Syndrome classification
+  ↓
+[5] Checklist     — Follow-up question generation
+  ↓
+[6] Validate      — JSON Schema validation
 ```
 
 ## Quick Start
 
 ```bash
-pip install -r requirements.txt
-python -m streamlit run app/app.py             # Launch demo (offline OK)
-python -m pytest tests/ -v                      # Run tests (30 tests)
+git clone https://github.com/KheziaNtomo/chw-copilot
+cd chw-copilot
+pip install -r app/requirements.txt
+streamlit run app/app.py
 ```
 
-## Privacy & Safety
+The app runs fully offline in demo mode — no API keys or GPU required.
 
-> **⚠️ Syndromic surveillance support only. NOT for clinical diagnosis.**
-> - Offline-first: No data leaves the device
-> - Aggregated counts only in surveillance — no individual patient data displayed
-> - All outputs require human verification before action
-> - Evidence grounding ensures every claim is traceable to the note
-> - Strawberry hallucination detection provides a second safety layer
+## Repo Structure
 
-## Impact Model
+```
+app/
+  app.py              — Streamlit entry point
+  chw_view.py         — CHW field worker interface
+  district_view.py    — District surveillance dashboard
+  demo_data.py        — Pre-computed pipeline outputs (demo mode)
+  styles.css          — App styling
+  src/                — Pipeline modules (extract, tag, validate, detect…)
+  prompts/            — MedGemma prompt templates
+  schemas/            — JSON Schema definitions
+  data_synth/         — Synthetic evaluation data
+notebooks/
+  kaggle_main.ipynb   — Full pipeline run on Kaggle T4 GPU (MedGemma 4B)
+```
 
-1. **CHW Level**: Reduces documentation errors, surfaces missing information via checklist
-2. **Facility Level**: Structured referrals with evidence-grounded encounter summaries
-3. **District Level**: Real-time anomaly detection enables early outbreak response
-4. **System Level**: Standardized syndromic data feeds into IDSR-compatible reporting
+## Evaluation
 
-## HAI-DEF Alignment
+Evaluated on 60 hand-annotated CHW notes run through MedGemma-4b-it on Kaggle (T4 GPU):
 
-- **Privacy by design**: Runs fully offline; no PII in model prompts
-- **Evidence grounding**: LLM claims are verified against source text
-- **Hallucination detection**: Strawberry catches claims not supported by evidence
-- **Human in the loop**: All outputs labelled as decision-support, not diagnosis
-- **Deterministic fallbacks**: Pipeline functions without GPU via rule-based alternatives
+| Metric | Result |
+|--------|--------|
+| Syndrome tag accuracy | **95% (57/60)** |
+| Evidence grounding rate | **100% (95/95 claims)** |
+| Avg processing time | **27s / note** |
 
-## Deployment Strategy (Prototype vs. Production)
+> Results are from a small, hand-authored evaluation set and should be treated as a proof-of-concept baseline, not a clinical validation.
 
-| Feature | **Competition Prototype** (Current) | **Real-World Pilot** (Vision) |
-| :--- | :--- | :--- |
-| **Interface** | Streamlit Web App (Browser) | Native Android App (Kotlin/Jetpack Compose) |
-| **Compute** | Laptop / Kaggle T4 GPU | On-Device NPU/GPU via **MediaPipe LLM Inference** |
-| **Model** | MedGemma (4B) via Transformers | MedGemma (2B/4B) quantized to int4 |
-| **Connectivity** | Localhost / Cloud | **Zero Data Cost** (Fully Offline) |
-| **Data Sync** | CSV / JSON Export | Opportunistic background sync (WorkManager) |
-| **Impact** | Demonstrates logical flow & safety | Enables deployment in remote, disconnected areas |
+## Limitations
 
-## Success Metrics
+- Demo notes are hand-crafted — real CHW notes will be noisier and more multilingual
+- Syndrome categories are limited to respiratory fever and acute watery diarrhoea (plus other/unclear)
+- Not validated for clinical decision-making — surveillance support only
 
-| Layer | Metric | Target |
-|-------|--------|--------|
-| Extraction | Hallucination rate | ≤ 2% |
-| Tagging | Syndrome tag F1 | ≥ 0.80 |
-| Red flags | Recall | ≥ 0.90 |
-| Monitoring | Detection delay | ≤ 1 week |
-| Monitoring | False alert rate | < 5% of location-weeks |
+## Disclaimer
+
+Not for clinical diagnosis. All outputs require human verification. Surveillance support tool only.

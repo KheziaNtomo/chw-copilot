@@ -29,11 +29,23 @@ test_output*.txt
 test_results*.txt
 test_errors.txt
 
-# Temporary scripts
+# Temporary scripts and generated files
 patch_notebook*.py
 restore_notebook*.py
 dir_creation.py
 deep_research*.md
+tmp_*.py
+tmp_*.txt
+tmp_*.json
+update_notebook_narrative.py
+_patch_notebook.py
+# Generated images at root (not needed for deployment)
+*.png
+*.webp
+label_schema_card.png
+syndrome_distribution_chart.png
+evaluation_charts.png
+pipeline_wide.png
 
 # Model checkpoints (too large for git)
 lora_checkpoints/

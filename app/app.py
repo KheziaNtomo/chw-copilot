@@ -24,38 +24,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ── Authentication ───────────────────────────────────────────
-def check_password():
-    """Returns `True` if the user had a correct password."""
-    try:
-        if "PASSWORD" not in st.secrets:
-            return True
-    except (FileNotFoundError, KeyError):
-        return True
 
-    def password_entered():
-        if st.session_state["password"] == st.secrets["PASSWORD"]:
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]
-        else:
-            st.session_state["password_correct"] = False
-
-    if "password_correct" not in st.session_state:
-        st.text_input(
-            "Enter Password", type="password", on_change=password_entered, key="password"
-        )
-        return False
-    elif not st.session_state["password_correct"]:
-        st.text_input(
-            "Enter Password", type="password", on_change=password_entered, key="password"
-        )
-        st.error("Password incorrect")
-        return False
-    else:
-        return True
-
-if not check_password():
-    st.stop()
 
 # ── Load Custom CSS ──────────────────────────────────────────
 css_path = app_dir / "styles.css"
@@ -70,14 +39,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ── Google AI Studio Initialisation ──────────────────────────
 import os
-try:
-    google_key = st.secrets.get("GOOGLE_API_KEY")
-    if google_key:
-        os.environ["GOOGLE_API_KEY"] = google_key
-except Exception:
-    pass
 
 try:
     from src.models import try_load_model, is_model_available, get_load_error
