@@ -50,6 +50,31 @@ streamlit run app/app.py
 
 The app runs fully offline in demo mode — no API keys or GPU required.
 
+## Connecting a Live Model
+
+By default the app runs on pre-computed demo outputs. To run the pipeline live with real MedGemma inference:
+
+**Requirements:** NVIDIA GPU with ≥8 GB VRAM (T4 or better), Python 3.10+
+
+```bash
+# 1. Accept the MedGemma licence at huggingface.co/google/medgemma-4b-it
+# 2. Set your Hugging Face token
+export HF_TOKEN=hf_your_token_here   # Linux/Mac
+$env:HF_TOKEN="hf_your_token_here"   # Windows PowerShell
+
+# 3. Install full dependencies
+pip install -r app/requirements.txt
+pip install transformers>=4.40 accelerate bitsandbytes
+
+# 4. Run — the app will detect the token and load MedGemma on startup
+streamlit run app/app.py
+```
+
+Without a GPU, the app falls back to demo mode automatically — no errors, just pre-computed results.
+
+The full pipeline (including live MedGemma inference on 60 evaluation notes) is demonstrated in [`notebooks/kaggle_main.ipynb`](notebooks/kaggle_main.ipynb), which runs on a free Kaggle T4 GPU.
+
+
 ## Repo Structure
 
 ```
