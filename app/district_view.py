@@ -154,13 +154,59 @@ def render_district_view():
     latest = weekly_data[weekly_data["week_id"] == latest_week]
     total_cases = int(latest["count"].sum())
 
-    # Alerts active for the selected week
-    alert_loc_ids = set(loc_id for wid, loc_id, _ in detected_anomalies if wid == latest_week)
-    week_alerts = [
-        (wid, loc_id, syn) for wid, loc_id, syn in detected_anomalies
-        if wid <= latest_week
-    ]
-    num_alerts = len(sitrep.get("alerts", []))
+    # Build dynamic alerts for the selected week from anomaly detection
+    alert_loc_ids = set()
+    dynamic_alerts = []
+    # Compute baselines for context
+    for wid, loc_id, syn in detected_anomalies:
+        if wid > latest_week:
+            continue
+        alert_loc_ids.add(loc_id)
+        loc_name = loc_id_to_name.get(loc_id, loc_id)
+        syn_display = SYNDROME_DISPLAY.get(syn, syn)
+        # Get the actual count and baseline for this anomaly
+        loc_syn_data = weekly_data[
+            (weekly_data["location_id"] == loc_id) & (weekly_data["syndrome_tag"] == syn)
+        ].sort_values("week_id")
+        row_match = loc_syn_data[loc_syn_data["week_id"] == wid]
+        count_val = int(row_match["count"].iloc[0]) if len(row_match) > 0 else 0
+        # Compute baseline from prior 4 weeks
+        prior = loc_syn_data[loc_syn_data["week_id"] < wid].tail(4)
+        baseline_mean = prior["count"].mean() if len(prior) > 0 else 1
+        ratio = count_val / baseline_mean if baseline_mean > 0 else 0
+        # Severity based on ratio
+        if ratio >= 5:
+            severity = "critical"
+        elif ratio >= 3:
+            severity = "high"
+        else:
+            severity = "medium"
+        # Latest-week count for this loc+syn (to show if resolved)
+        latest_row = loc_syn_data[loc_syn_data["week_id"] == latest_week]
+        latest_count = int(latest_row["count"].iloc[0]) if len(latest_row) > 0 else 0
+        if wid == latest_week:
+            trigger = "{} cases in W{} ({:.1f}x baseline)".format(count_val, wid, ratio)
+        else:
+            trigger = "Peaked at {} in W{} ({:.1f}x baseline), now {} in W{}".format(
+                count_val, wid, ratio, latest_count, latest_week)
+            if latest_count <= baseline_mean * 1.5:
+                severity = "medium"  # Resolved
+                trigger = "Resolved: " + trigger
+        dynamic_alerts.append({
+            "severity": severity,
+            "location": loc_id,
+            "location_name": loc_name,
+            "syndrome": syn,
+            "syndrome_display": syn_display,
+            "message": trigger,
+            "action": _recommend({"syndrome": syn}),
+        })
+
+    # Sort: critical first, then high, then medium
+    sev_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+    dynamic_alerts.sort(key=lambda a: sev_order.get(a["severity"], 9))
+
+    num_alerts = len(dynamic_alerts)
     num_locations = latest["location_id"].nunique()
     weeks_tracked = latest_week - min(all_week_ids) + 1
 
@@ -186,18 +232,18 @@ def render_district_view():
 
     st.markdown("<div style='height:1.5rem'></div>", unsafe_allow_html=True)
 
-    # -- Situation Report Table (top of dashboard) --
-    if sitrep.get("alerts"):
-        with st.expander(f"Situation Report ({len(sitrep['alerts'])} alerts)", expanded=True):
+    # -- Situation Report Table (dynamic alerts) --
+    if dynamic_alerts:
+        with st.expander(f"Situation Report ({num_alerts} alerts)", expanded=True):
             sev_colors = {"critical": "#a11", "high": "#c0392b", "medium": "#b5770d", "low": "#8D957E"}
             rows_html = ""
-            for alert in sitrep["alerts"]:
+            for alert in dynamic_alerts:
                 sev = alert["severity"]
                 sev_c = sev_colors.get(sev, "#788990")
-                loc = DEMO_LOCATIONS.get(alert["location"], {}).get("name", alert["location"])
-                syn = SYNDROME_DISPLAY.get(alert["syndrome"], alert["syndrome"])
+                loc = alert["location_name"]
+                syn = alert["syndrome_display"]
                 msg = alert.get("message", "")
-                rec = alert.get("action", _recommend(alert))
+                rec = alert.get("action", "")
                 rows_html += (
                     f'<tr>'
                     f'<td style="color:{sev_c};font-weight:700;text-transform:uppercase;'
