@@ -39,13 +39,17 @@ tmp_*.txt
 tmp_*.json
 update_notebook_narrative.py
 _patch_notebook.py
-# Generated images at root (not needed for deployment)
+build_notebook*.py
+fix_*.py
+
+# Stub / scratch notebooks
+*stub*.ipynb
+*scratch*.ipynb
+# Generated images (not needed for deployment)
 *.png
 *.webp
-label_schema_card.png
-syndrome_distribution_chart.png
-evaluation_charts.png
-pipeline_wide.png
+**/*.png
+**/*.webp
 
 # Model checkpoints (too large for git)
 lora_checkpoints/
